@@ -89,7 +89,21 @@ public class SearchActivity extends AppCompatActivity implements NoteAdapter.OnN
         // Автоматически открыть клавиатуру
         searchEditText.requestFocus();
     }
+    @Override
+    public void onPinClick(int position) {
+        Note note = filteredNotes.get(position);
+        note.setPinned(!note.isPinned());
+        databaseHelper.updateNote(note);
 
+        // Пересортировать список: закрепленные сверху
+        java.util.Collections.sort(filteredNotes, (a, b) -> {
+            if (a.isPinned() != b.isPinned()) return a.isPinned() ? -1 : 1;
+            if (a.isCompleted() != b.isCompleted()) return a.isCompleted() ? 1 : -1;
+            return Long.compare(b.getCreatedAt(), a.getCreatedAt());
+        });
+
+        noteAdapter.notifyDataSetChanged();
+    }
     private void filterNotes(String query) {
         filteredNotes.clear();
 

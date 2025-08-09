@@ -1,7 +1,5 @@
 package com.kelo.noteapp;
 
-
-
 import java.io.Serializable;
 
 public class Note implements Serializable {
@@ -11,71 +9,32 @@ public class Note implements Serializable {
     private long createdAt;
     private long reminderTime;
     private boolean isCompleted;
+    private boolean isPinned;
 
     public Note() {
         this.isCompleted = false;
-        this.reminderTime = 0;
-    }
-
-    public Note(String title, String content) {
-        this.title = title;
-        this.content = content;
-        this.createdAt = System.currentTimeMillis();
-        this.isCompleted = false;
-        this.reminderTime = 0;
+        this.isPinned = false;
     }
 
     // Getters
-    public int getId() {
-        return id;
-    }
-
-    public String getTitle() {
-        return title;
-    }
-
-    public String getContent() {
-        return content;
-    }
-
-    public long getCreatedAt() {
-        return createdAt;
-    }
-
-    public long getReminderTime() {
-        return reminderTime;
-    }
-
-    public boolean isCompleted() {
-        return isCompleted;
-    }
+    public int getId() { return id; }
+    public String getTitle() { return title; }
+    public String getContent() { return content; }
+    public long getCreatedAt() { return createdAt; }
+    public long getReminderTime() { return reminderTime; }
+    public boolean isCompleted() { return isCompleted; }
+    public boolean isPinned() { return isPinned; }
 
     // Setters
-    public void setId(int id) {
-        this.id = id;
-    }
+    public void setId(int id) { this.id = id; }
+    public void setTitle(String title) { this.title = title; }
+    public void setContent(String content) { this.content = content; }
+    public void setCreatedAt(long createdAt) { this.createdAt = createdAt; }
+    public void setReminderTime(long reminderTime) { this.reminderTime = reminderTime; }
+    public void setCompleted(boolean completed) { isCompleted = completed; }
+    public void setPinned(boolean pinned) { isPinned = pinned; }
 
-    public void setTitle(String title) {
-        this.title = title;
-    }
-
-    public void setContent(String content) {
-        this.content = content;
-    }
-
-    public void setCreatedAt(long createdAt) {
-        this.createdAt = createdAt;
-    }
-
-    public void setReminderTime(long reminderTime) {
-        this.reminderTime = reminderTime;
-    }
-
-    public void setCompleted(boolean completed) {
-        isCompleted = completed;
-    }
-
-    // Вспомогательные методы
+    // Helpers
     public boolean hasReminder() {
         return reminderTime > 0;
     }

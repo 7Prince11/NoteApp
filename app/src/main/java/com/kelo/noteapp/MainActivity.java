@@ -85,7 +85,12 @@ public class MainActivity extends AppCompatActivity implements NoteAdapter.OnNot
 
     private void loadNotes() {
         notesList = databaseHelper.getAllNotes();
-
+        // sort: pinned → not completed → newest
+        java.util.Collections.sort(notesList, (a,b) -> {
+            if (a.isPinned() != b.isPinned()) return a.isPinned() ? -1 : 1;
+            if (a.isCompleted() != b.isCompleted()) return a.isCompleted() ? 1 : -1;
+            return Long.compare(b.getCreatedAt(), a.getCreatedAt());
+        });
         if (notesList.isEmpty()) {
             recyclerView.setVisibility(View.GONE);
             emptyView.setVisibility(View.VISIBLE);
@@ -339,7 +344,23 @@ public class MainActivity extends AppCompatActivity implements NoteAdapter.OnNot
         new ItemTouchHelper(swipeCallback).attachToRecyclerView(recyclerView);
     }
 
+    @Override
+    public void onPinClick(int position) {
+        Note note = notesList.get(position);
+        note.setPinned(!note.isPinned());
+        databaseHelper.updateNote(note);
 
+        // Re-sort list: pinned first, then not completed, then newest
+        java.util.Collections.sort(notesList, (a,b) -> {
+            if (a.isPinned() != b.isPinned()) return a.isPinned() ? -1 : 1;
+            if (a.isCompleted() != b.isCompleted()) return a.isCompleted() ? 1 : -1;
+            return Long.compare(b.getCreatedAt(), a.getCreatedAt());
+        });
+
+        noteAdapter.notifyDataSetChanged();
+        // (optional) update widget if you want immediate reflect
+        // updateWidget();
+    }
     private void scheduleNotification(Note note) {
         Intent intent = new Intent(this, NotificationReceiver.class);
         intent.putExtra("note_id", note.getId());

@@ -1,20 +1,22 @@
 package com.kelo.noteapp;
 
-
 import android.content.Context;
 import android.graphics.Paint;
-import android.os.Build;
 import android.view.LayoutInflater;
+import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.CheckBox;
 import android.widget.CompoundButton;
 import android.widget.ImageButton;
 import android.widget.ImageView;
+import android.widget.PopupMenu;
 import android.widget.TextView;
+
 import androidx.annotation.NonNull;
 import androidx.cardview.widget.CardView;
 import androidx.recyclerview.widget.RecyclerView;
+
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.List;
@@ -22,14 +24,15 @@ import java.util.Locale;
 
 public class NoteAdapter extends RecyclerView.Adapter<NoteAdapter.NoteViewHolder> {
 
-    private Context context;
-    private List<Note> notesList;
-    private OnNoteListener onNoteListener;
+    private final Context context;
+    private final List<Note> notesList;
+    private final OnNoteListener onNoteListener;
 
     public interface OnNoteListener {
         void onNoteClick(int position);
         void onDeleteClick(int position);
         void onCompleteClick(int position);
+        void onPinClick(int position);
     }
 
     public NoteAdapter(Context context, List<Note> notesList, OnNoteListener onNoteListener) {
@@ -49,43 +52,34 @@ public class NoteAdapter extends RecyclerView.Adapter<NoteAdapter.NoteViewHolder
     public void onBindViewHolder(@NonNull NoteViewHolder holder, int position) {
         Note note = notesList.get(position);
 
-        // Установка заголовка и содержания
+        // Title & content
         holder.textTitle.setText(note.getTitle());
         holder.textContent.setText(note.getContent());
 
-        // Форматирование даты создания
+        // Created date
         SimpleDateFormat sdf = new SimpleDateFormat("dd MMM yyyy", new Locale("ru"));
-        String dateCreated = sdf.format(new Date(note.getCreatedAt()));
-        holder.textDate.setText(dateCreated);
+        holder.textDate.setText(sdf.format(new Date(note.getCreatedAt())));
 
-        // Отображение напоминания
+        // Reminder UI
         if (note.hasReminder()) {
             holder.iconReminder.setVisibility(View.VISIBLE);
-
-            if (note.isReminderExpired()) {
-                holder.textReminderTime.setText("Напоминание прошло");
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                    holder.textReminderTime.setTextColor(context.getColor(android.R.color.holo_red_dark));
-                }
-            } else {
-                SimpleDateFormat reminderSdf = new SimpleDateFormat("dd MMM, HH:mm", new Locale("ru"));
-                String reminderTime = reminderSdf.format(new Date(note.getReminderTime()));
-                holder.textReminderTime.setText(reminderTime);
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                    holder.textReminderTime.setTextColor(context.getColor(android.R.color.holo_blue_dark));
-                }
-            }
             holder.textReminderTime.setVisibility(View.VISIBLE);
+            if (note.isReminderExpired()) {
+                holder.textReminderTime.setText("Просрочено");
+                holder.textReminderTime.setTextColor(context.getColor(android.R.color.holo_red_dark));
+            } else {
+                SimpleDateFormat rtf = new SimpleDateFormat("dd MMM, HH:mm", new Locale("ru"));
+                holder.textReminderTime.setText(rtf.format(new Date(note.getReminderTime())));
+                holder.textReminderTime.setTextColor(context.getColor(android.R.color.holo_blue_dark));
+            }
         } else {
             holder.iconReminder.setVisibility(View.GONE);
             holder.textReminderTime.setVisibility(View.GONE);
         }
 
-        // Установка состояния выполнения
+        // Completed styling
         holder.checkboxComplete.setOnCheckedChangeListener(null);
         holder.checkboxComplete.setChecked(note.isCompleted());
-
-        // Применение стиля для выполненных задач
         if (note.isCompleted()) {
             holder.textTitle.setPaintFlags(holder.textTitle.getPaintFlags() | Paint.STRIKE_THRU_TEXT_FLAG);
             holder.textContent.setPaintFlags(holder.textContent.getPaintFlags() | Paint.STRIKE_THRU_TEXT_FLAG);
@@ -96,12 +90,50 @@ public class NoteAdapter extends RecyclerView.Adapter<NoteAdapter.NoteViewHolder
             holder.cardView.setAlpha(1.0f);
         }
 
-        // Обработчик изменения состояния выполнения
-        holder.checkboxComplete.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
-            @Override
-            public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
-                onNoteListener.onCompleteClick(holder.getAdapterPosition());
+        // Show/Hide "pinned" badge
+        holder.textPinnedBadge.setVisibility(note.isPinned() ? View.VISIBLE : View.GONE);
+
+        // Delete button
+        holder.btnDelete.setOnClickListener(v -> {
+            if (holder.getAdapterPosition() != RecyclerView.NO_POSITION) {
+                onNoteListener.onDeleteClick(holder.getAdapterPosition());
             }
+        });
+
+        // Checkbox toggle
+        holder.checkboxComplete.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            @Override public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
+                if (holder.getAdapterPosition() != RecyclerView.NO_POSITION) {
+                    onNoteListener.onCompleteClick(holder.getAdapterPosition());
+                }
+            }
+        });
+
+        // Click → open
+        holder.itemView.setOnClickListener(v -> {
+            if (holder.getAdapterPosition() != RecyclerView.NO_POSITION) {
+                onNoteListener.onNoteClick(holder.getAdapterPosition());
+            }
+        });
+
+        // Long‑press menu: Pin / Unpin
+        holder.itemView.setOnLongClickListener(v -> {
+            PopupMenu menu = new PopupMenu(context, v);
+            final int MENU_PIN = 1;
+            menu.getMenu().add(0, MENU_PIN, 0, note.isPinned() ? "Открепить" : "Закрепить");
+            menu.setOnMenuItemClickListener(new PopupMenu.OnMenuItemClickListener() {
+                @Override public boolean onMenuItemClick(MenuItem item) {
+                    if (item.getItemId() == MENU_PIN) {
+                        if (holder.getAdapterPosition() != RecyclerView.NO_POSITION) {
+                            onNoteListener.onPinClick(holder.getAdapterPosition());
+                            return true;
+                        }
+                    }
+                    return false;
+                }
+            });
+            menu.show();
+            return true;
         });
     }
 
@@ -110,42 +142,24 @@ public class NoteAdapter extends RecyclerView.Adapter<NoteAdapter.NoteViewHolder
         return notesList.size();
     }
 
-    public class NoteViewHolder extends RecyclerView.ViewHolder implements View.OnClickListener {
-
+    static class NoteViewHolder extends RecyclerView.ViewHolder {
         CardView cardView;
-        TextView textTitle, textContent, textDate, textReminderTime;
+        TextView textTitle, textContent, textDate, textReminderTime, textPinnedBadge;
         ImageView iconReminder;
-        ImageButton btnDelete;
         CheckBox checkboxComplete;
-        OnNoteListener onNoteListener;
+        ImageButton btnDelete;
 
         public NoteViewHolder(@NonNull View itemView, OnNoteListener onNoteListener) {
             super(itemView);
-
             cardView = itemView.findViewById(R.id.cardView);
+            textPinnedBadge = itemView.findViewById(R.id.textPinnedBadge);
             textTitle = itemView.findViewById(R.id.textTitle);
             textContent = itemView.findViewById(R.id.textContent);
             textDate = itemView.findViewById(R.id.textDate);
             textReminderTime = itemView.findViewById(R.id.textReminderTime);
             iconReminder = itemView.findViewById(R.id.iconReminder);
-            btnDelete = itemView.findViewById(R.id.btnDelete);
             checkboxComplete = itemView.findViewById(R.id.checkboxComplete);
-
-            this.onNoteListener = onNoteListener;
-
-            itemView.setOnClickListener(this);
-
-            btnDelete.setOnClickListener(new View.OnClickListener() {
-                @Override
-                public void onClick(View v) {
-                    onNoteListener.onDeleteClick(getAdapterPosition());
-                }
-            });
-        }
-
-        @Override
-        public void onClick(View v) {
-            onNoteListener.onNoteClick(getAdapterPosition());
+            btnDelete = itemView.findViewById(R.id.btnDelete);
         }
     }
 }
