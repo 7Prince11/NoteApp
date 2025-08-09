@@ -48,6 +48,7 @@
                     android:id="@+id/editTitle"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
+                    android:textColorHighlight="@color/warning_color"
                     android:hint="Заголовок"
                     android:inputType="textCapSentences"
                     android:maxLines="2"
@@ -69,6 +70,8 @@
                     android:id="@+id/editContent"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
+
+                    android:textColorHint="@color/text_primary"
                     android:hint="Содержание заметки"
                     android:inputType="textMultiLine|textCapSentences"
                     android:minLines="5"
@@ -86,14 +89,15 @@
 
                 <com.google.android.material.chip.Chip
                     android:id="@+id/chipReminder"
+                    style="@style/Widget.MaterialComponents.Chip.Action"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="Добавить напоминание"
+                    android:textColor="@color/divider_color"
+
                     app:chipIcon="@drawable/ic_alarm"
-                    app:chipBackgroundColor="@color/chip_background"
                     app:chipStrokeColor="@color/colorPrimary"
-                    app:chipStrokeWidth="1dp"
-                    style="@style/Widget.MaterialComponents.Chip.Action" />
+                    app:chipStrokeWidth="1dp" />
 
                 <LinearLayout
                     android:layout_width="match_parent"

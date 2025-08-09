@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Мои Заметки</string>
+
+    <!-- Главный экран -->
+    <string name="title_main">Мои заметки</string>
+    <string name="empty_notes_message">Нет заметок\nНажмите + чтобы добавить</string>
+
+    <!-- Экран добавления/редактирования -->
+    <string name="title_new_note">Новая заметка</string>
+    <string name="title_edit_note">Редактировать заметку</string>
+    <string name="hint_title">Заголовок</string>
+    <string name="hint_content">Содержание заметки</string>
+    <string name="button_save">Сохранить</string>
+    <string name="button_cancel">Отмена</string>
+
+    <!-- Напоминания -->
+    <string name="add_reminder">Добавить напоминание</string>
+    <string name="change_reminder">Изменить напоминание</string>
+    <string name="reminder_label">Напоминание: %s</string>
+    <string name="clear_reminder">Удалить напоминание</string>
+    <string name="reminder_deleted">Напоминание удалено</string>
+    <string name="reminder_expired">Напоминание прошло</string>
+
+    <!-- Уведомления -->
+    <string name="notification_channel_name">Напоминания о заметках</string>
+    <string name="notification_channel_description">Канал для напоминаний о задачах</string>
+    <string name="notification_title">Напоминание: %s</string>
+    <string name="action_complete">Выполнено</string>
+    <string name="action_snooze">Отложить</string>
+    <string name="task_completed">Задача выполнена!</string>
+    <string name="reminder_snoozed">Напоминание отложено на 10 минут</string>
+
+    <!-- Сообщения -->
+    <string name="note_added">Заметка добавлена</string>
+    <string name="note_updated">Заметка обновлена</string>
+    <string name="note_deleted">Заметка удалена</string>
+    <string name="error_empty_title">Введите заголовок</string>
+    <string name="error_empty_content">Введите содержание</string>
+    <string name="error_past_time">Выберите время в будущем</string>
+
+    <!-- Действия -->
+    <string name="action_delete">Удалить</string>
+    <string name="action_edit">Редактировать</string>
+    <string name="action_share">Поделиться</string>
+
+    <!-- Диалоги -->
+    <string name="dialog_delete_title">Удалить заметку?</string>
+    <string name="dialog_delete_message">Эта заметка будет удалена безвозвратно.</string>
+    <string name="dialog_yes">Да</string>
+    <string name="dialog_no">Нет</string>
+</resources>

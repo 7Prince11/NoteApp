@@ -14,6 +14,13 @@ import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.TextView;
+import androidx.core.content.ContextCompat;
+import android.graphics.drawable.Drawable;
+import android.graphics.Paint;
+import android.graphics.Color;
+import android.graphics.Canvas;
+import com.google.android.material.snackbar.Snackbar;
+import androidx.recyclerview.widget.ItemTouchHelper;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
 import androidx.recyclerview.widget.LinearLayoutManager;
@@ -60,6 +67,8 @@ public class MainActivity extends AppCompatActivity implements NoteAdapter.OnNot
         // Настройка RecyclerView
         recyclerView.setLayoutManager(new LinearLayoutManager(this));
         recyclerView.setHasFixedSize(true);
+
+        setupSwipes();
 
         // Загрузка заметок
         loadNotes();
@@ -214,4 +223,145 @@ public class MainActivity extends AppCompatActivity implements NoteAdapter.OnNot
             }
         }
     }
+
+    private void setupSwipes() {
+        ItemTouchHelper.SimpleCallback swipeCallback =
+                new ItemTouchHelper.SimpleCallback(0, ItemTouchHelper.LEFT | ItemTouchHelper.RIGHT) {
+
+                    @Override
+                    public void onChildDraw(Canvas c, RecyclerView recyclerView, RecyclerView.ViewHolder viewHolder,
+                                            float dX, float dY, int actionState, boolean isCurrentlyActive) {
+                        super.onChildDraw(c, recyclerView, viewHolder, dX, dY, actionState, isCurrentlyActive);
+
+                        View itemView = viewHolder.itemView;
+                        float height = (float) itemView.getBottom() - itemView.getTop();
+                        float iconSize = height * 0.4f;
+
+                        Paint paint = new Paint();
+                        Drawable icon;
+
+                        if (dX > 0) {
+                            // Swiping right -> complete (green background, check icon)
+                            paint.setColor(Color.parseColor("#2E7D32")); // green 800
+                            c.drawRect(itemView.getLeft(), itemView.getTop(),
+                                    itemView.getLeft() + dX, itemView.getBottom(), paint);
+
+                            icon = ContextCompat.getDrawable(recyclerView.getContext(), R.drawable.ic_check_green);
+                            if (icon != null) {
+                                int left = itemView.getLeft() + (int)(height * 0.3f);
+                                int top = itemView.getTop() + (int)((height - iconSize) / 2);
+                                int right = left + (int)iconSize;
+                                int bottom = top + (int)iconSize;
+                                icon.setBounds(left, top, right, bottom);
+                                icon.draw(c);
+                            }
+                        } else if (dX < 0) {
+                            // Swiping left -> delete (red background, trash icon)
+                            paint.setColor(Color.parseColor("#C62828")); // red 800
+                            c.drawRect(itemView.getRight() + dX, itemView.getTop(),
+                                    itemView.getRight(), itemView.getBottom(), paint);
+
+                            icon = ContextCompat.getDrawable(recyclerView.getContext(), R.drawable.ic_delete);
+                            if (icon != null) {
+                                int right = itemView.getRight() - (int)(height * 0.3f);
+                                int top = itemView.getTop() + (int)((height - iconSize) / 2);
+                                int left = right - (int)iconSize;
+                                int bottom = top + (int)iconSize;
+                                icon.setBounds(left, top, right, bottom);
+                                icon.draw(c);
+                            }
+                        }
+                    }
+                    @Override
+                    public boolean onMove(RecyclerView recyclerView, RecyclerView.ViewHolder viewHolder, RecyclerView.ViewHolder target) {
+                        return false;
+                    }
+
+                    @Override
+                    public void onSwiped(RecyclerView.ViewHolder viewHolder, int direction) {
+                        int pos = viewHolder.getBindingAdapterPosition();
+                        if (pos == RecyclerView.NO_POSITION) return;
+
+                        Note note = notesList.get(pos);
+
+                        if (direction == ItemTouchHelper.LEFT) {
+                            // Delete with UNDO
+                            // cancel reminder if any
+                            if (note.getReminderTime() > 0) {
+                                cancelNotification(note.getId());
+                            }
+                            // remove from DB & list
+                            databaseHelper.deleteNote(note.getId());
+                            notesList.remove(pos);
+                            noteAdapter.notifyItemRemoved(pos);
+
+                            // empty state toggle
+                            if (notesList.isEmpty()) {
+                                recyclerView.setVisibility(View.GONE);
+                                emptyView.setVisibility(View.VISIBLE);
+                            }
+
+                            updateWidget();
+
+                            Snackbar.make(MainActivity.this.recyclerView, "Note deleted", Snackbar.LENGTH_LONG)
+                                    .setAction("UNDO", v -> {
+                                        long newId = databaseHelper.addNote(note);
+                                        note.setId((int) newId);
+                                        notesList.add(pos, note);
+                                        noteAdapter.notifyItemInserted(pos);
+
+                                        // reschedule reminder if exists
+                                        if (note.getReminderTime() > 0) {
+                                            scheduleNotification(note);
+                                        }
+
+                                        recyclerView.setVisibility(View.VISIBLE);
+                                        emptyView.setVisibility(View.GONE);
+                                        updateWidget();
+                                    })
+                                    .addCallback(new Snackbar.Callback() {
+                                        @Override
+                                        public void onDismissed(Snackbar transientBottomBar, int event) {
+                                            // refresh row if user dismissed without UNDO to clear swipe state
+                                            noteAdapter.notifyItemRangeChanged(pos, noteAdapter.getItemCount() - pos);
+                                        }
+                                    })
+                                    .show();
+
+                        } else if (direction == ItemTouchHelper.RIGHT) {
+                            // Toggle complete
+                            note.setCompleted(!note.isCompleted());
+                            databaseHelper.updateNote(note);
+                            noteAdapter.notifyItemChanged(pos);
+                        }
+                    }
+                };
+        new ItemTouchHelper(swipeCallback).attachToRecyclerView(recyclerView);
+    }
+
+
+    private void scheduleNotification(Note note) {
+        Intent intent = new Intent(this, NotificationReceiver.class);
+        intent.putExtra("note_id", note.getId());
+        intent.putExtra("note_title", note.getTitle());
+        intent.putExtra("note_content", note.getContent());
+
+        PendingIntent pendingIntent = PendingIntent.getBroadcast(
+                this,
+                note.getId(),
+                intent,
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+        );
+
+        AlarmManager alarmManager = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
+        long when = note.getReminderTime();
+        if (when <= 0) return;
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, when, pendingIntent);
+        } else {
+            alarmManager.setExact(AlarmManager.RTC_WAKEUP, when, pendingIntent);
+        }
+    }
+
 }

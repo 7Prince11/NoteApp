@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- focused -->
+    <item android:state_enabled="true" android:state_focused="true"
+        android:color="@color/text_primary"/>
+    <!-- hovered (pointer over) -->
+    <item android:state_enabled="true" android:state_hovered="true"
+        android:color="@color/text_primary"/>
+    <!-- enabled default -->
+    <item android:state_enabled="true"
+        android:color="@color/text_primary"/>
+    <!-- disabled -->
+    <item android:state_enabled="false"
+        android:color="@color/text_secondary"/>
+</selector>

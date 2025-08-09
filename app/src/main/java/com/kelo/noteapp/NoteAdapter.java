@@ -3,6 +3,7 @@ package com.kelo.noteapp;
 
 import android.content.Context;
 import android.graphics.Paint;
+import android.os.Build;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -63,12 +64,16 @@ public class NoteAdapter extends RecyclerView.Adapter<NoteAdapter.NoteViewHolder
 
             if (note.isReminderExpired()) {
                 holder.textReminderTime.setText("Напоминание прошло");
-                holder.textReminderTime.setTextColor(context.getColor(android.R.color.holo_red_dark));
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    holder.textReminderTime.setTextColor(context.getColor(android.R.color.holo_red_dark));
+                }
             } else {
                 SimpleDateFormat reminderSdf = new SimpleDateFormat("dd MMM, HH:mm", new Locale("ru"));
                 String reminderTime = reminderSdf.format(new Date(note.getReminderTime()));
                 holder.textReminderTime.setText(reminderTime);
-                holder.textReminderTime.setTextColor(context.getColor(android.R.color.holo_blue_dark));
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    holder.textReminderTime.setTextColor(context.getColor(android.R.color.holo_blue_dark));
+                }
             }
             holder.textReminderTime.setVisibility(View.VISIBLE);
         } else {

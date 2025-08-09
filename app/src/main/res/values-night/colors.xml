@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Основные цвета - Comfortable Dark Theme -->
+    <color name="colorPrimary">#64B5F6</color>         <!-- Softer blue for dark theme -->
+    <color name="colorPrimaryDark">#42A5F5</color>     <!-- Lighter blue for status bar -->
+    <color name="colorAccent">#FFB74D</color>          <!-- Warm orange accent -->
+
+    <!-- Цвета фона - Comfortable Dark (не чистый черный!) -->
+    <color name="background">#1A1A1A</color>           <!-- Soft dark gray instead of pure black -->
+    <color name="card_background">#2D2D2D</color>      <!-- Comfortable card background -->
+    <color name="chip_background">#3A3A3A</color>      <!-- Medium gray for chips -->
+
+    <!-- Цвета текста - Soft Contrast (не чистый белый!) -->
+    <color name="text_primary">#E8E8E8</color>         <!-- Soft off-white instead of pure white -->
+    <color name="text_secondary">#B8B8B8</color>       <!-- Comfortable light gray -->
+    <color name="text_tertiary">#888888</color>        <!-- Medium gray for less important text -->
+
+    <!-- Дополнительные цвета - Eye-Friendly -->
+    <color name="delete_color">#E57373</color>         <!-- Softer red -->
+    <color name="success_color">#81C784</color>        <!-- Soft green -->
+    <color name="warning_color">#FFB74D</color>        <!-- Warm orange -->
+
+    <!-- Профессиональные цвета -->
+    <color name="primary_light">#90CAF9</color>        <!-- Very light blue -->
+    <color name="primary_variant">#1976D2</color>      <!-- Standard blue -->
+    <color name="surface">#2D2D2D</color>              <!-- Same as card background -->
+    <color name="on_surface">#404040</color>           <!-- Soft off-white text -->
+    <color name="on_primary">#1A1A1A</color>           <!-- Dark text on light primary -->
+
+    <!-- Цвета для виджетов и элементов -->
+    <color name="divider_color">#E0E0E0    </color>     <!-- Soft divider lines -->
+    <color name="ripple_color">#64B5F6</color>         <!-- Blue ripple effect -->
+    <color name="disabled_color">#606060</color>       <!-- Disabled elements -->
+
+    <!-- Статусные цвета - Comfortable -->
+    <color name="reminder_active">#64B5F6</color>      <!-- Soft blue for reminders -->
+    <color name="reminder_expired">#E57373</color>
+    <color name="completed_task">#81C784</color>
+
+
+    <color name="dark_background">#1A1A1A</color>
+    <color name="dark_card_background">#2D2D2D</color>
+    <color name="dark_text_primary">#E8E8E8</color>
+    <color name="dark_text_secondary">#B8B8B8</color>
+    <color name="dark_primary">#64B5F6</color>
+    <color name="dark_surface">#2D2D2D</color>
+
+
+    <color name="elevated_surface">#383838</color>
+    <color name="outline_color">#505050</color>
+    <color name="outline_variant">#606060</color>
+    <color name="inverse_surface">#404040</color>
+    <color name="inverse_on_surface">#1A1A1A</color>
+
+
+    <color name="state_disabled">#606060</color>
+    <color name="state_pressed">#404040</color>
+    <color name="state_focused">#64B5F6</color>
+    <color name="state_selected">#4A4A4A</color>
+</resources>

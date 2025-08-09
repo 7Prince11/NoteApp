@@ -1,7 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:tools="http://schemas.android.com/tools">
-    <!-- Base application theme. -->
-    <style name="Base.Theme.NoteApp" parent="Theme.Material3.DayNight.NoActionBar">
-        <!-- Customize your dark theme here. -->
-        <!-- <item name="colorPrimary">@color/my_dark_primary</item> -->
+    <!-- Основная темная тема приложения - Professional Dark -->
+    <style name="Theme.NotesApp" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <!-- Основные цвета -->
+        <item name="colorPrimary">@color/colorPrimary</item>
+        <item name="colorPrimaryVariant">@color/colorPrimaryDark</item>
+        <item name="colorOnPrimary">@color/on_primary</item>
+
+        <!-- Вторичные цвета -->
+        <item name="colorSecondary">@color/colorAccent</item>
+        <item name="colorSecondaryVariant">@color/warning_color</item>
+        <item name="colorOnSecondary">@color/dark_background</item>
+
+        <!-- Цвета фона и поверхности -->
+        <item name="android:colorBackground">@color/background</item>
+        <item name="android:windowBackground">@color/background</item>
+        <item name="colorSurface">@color/surface</item>
+        <item name="colorOnSurface">@color/on_surface</item>
+        <item name="colorOnBackground">@color/text_primary</item>
+        <item name="hintTextColor">@color/ti_hint_always_white</item>
+
+
+        <!-- Статус бар и навигация - Dark Theme -->
+        <item name="android:statusBarColor" tools:targetApi="l">@color/background</item>
+        <item name="android:navigationBarColor" tools:targetApi="l">@color/background</item>
+        <item name="android:windowLightStatusBar" tools:targetApi="m">false</item>
+        <item name="android:windowLightNavigationBar" tools:targetApi="o">false</item>
+
+        <!-- Элементы управления -->
+        <item name="colorControlNormal">@color/text_secondary</item>
+        <item name="colorControlActivated">@color/colorPrimary</item>
+        <item name="colorControlHighlight">@color/ripple_color</item>
+
+        <!-- Ошибки -->
+        <item name="colorError">@color/delete_color</item>
+        <item name="colorOnError">@color/dark_background</item>
+
+        <!-- Шрифты и размеры -->
+        <item name="android:textColorPrimary">@color/text_primary</item>
+        <item name="android:textColorSecondary">@color/text_secondary</item>
+        <item name="android:textColorTertiary">@color/text_tertiary</item>
+    </style>
+
+    <!-- Тема для Toolbar - Dark Professional -->
+    <style name="Theme.NotesApp.AppBarOverlay" parent="ThemeOverlay.MaterialComponents.Dark.ActionBar">
+        <item name="colorPrimary">@color/background</item>
+        <item name="colorOnPrimary">@color/text_primary</item>
+        <item name="android:textColorPrimary">@color/text_primary</item>
+    </style>
+
+    <!-- Тема для PopupMenu - Dark Professional -->
+    <style name="Theme.NotesApp.PopupOverlay" parent="ThemeOverlay.MaterialComponents.Dark">
+        <item name="colorPrimary">@color/colorPrimary</item>
+        <item name="android:textColorPrimary">@color/text_primary</item>
+        <item name="android:colorBackground">@color/surface</item>
     </style>
 </resources>

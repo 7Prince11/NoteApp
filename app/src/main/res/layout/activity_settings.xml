@@ -46,7 +46,7 @@
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:background="@android:color/white"
+                android:background="?attr/colorSurface"
                 android:orientation="horizontal"
                 android:padding="16dp">
 
@@ -83,7 +83,7 @@
             <View
                 android:layout_width="match_parent"
                 android:layout_height="1dp"
-                android:background="@color/background" />
+                android:background="@color/divider_color" />
 
             <!-- Раздел: Уведомления -->
             <TextView
@@ -99,7 +99,7 @@
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:background="@android:color/white"
+                android:background="?attr/colorSurface"
                 android:orientation="horizontal"
                 android:padding="16dp">
 
@@ -121,12 +121,12 @@
             <View
                 android:layout_width="match_parent"
                 android:layout_height="1dp"
-                android:background="@color/background" />
+                android:background="@color/divider_color" />
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:background="@android:color/white"
+                android:background="?attr/colorSurface"
                 android:orientation="horizontal"
                 android:padding="16dp">
 
@@ -148,7 +148,7 @@
             <View
                 android:layout_width="match_parent"
                 android:layout_height="1dp"
-                android:background="@color/background" />
+                android:background="@color/divider_color"/>
 
             <!-- Раздел: Заметки -->
             <TextView
@@ -165,7 +165,7 @@
                 android:id="@+id/layoutSortOrder"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:background="@android:color/white"
+                android:background="?attr/colorSurface"
                 android:orientation="vertical"
                 android:padding="16dp"
                 android:clickable="true"
@@ -192,13 +192,13 @@
             <View
                 android:layout_width="match_parent"
                 android:layout_height="1dp"
-                android:background="@color/background" />
+                android:background="@color/divider_color" />
 
             <LinearLayout
                 android:id="@+id/layoutDefaultReminder"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:background="@android:color/white"
+                android:background="?attr/colorSurface"
                 android:orientation="vertical"
                 android:padding="16dp"
                 android:clickable="true"
@@ -225,7 +225,7 @@
             <View
                 android:layout_width="match_parent"
                 android:layout_height="1dp"
-                android:background="@color/background" />
+                android:background="@color/divider_color" />
 
             <!-- Раздел: Данные -->
             <TextView
@@ -242,7 +242,7 @@
                 android:id="@+id/layoutExport"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:background="@android:color/white"
+                android:background="?attr/colorSurface"
                 android:orientation="horizontal"
                 android:padding="16dp"
                 android:clickable="true"
@@ -269,13 +269,13 @@
             <View
                 android:layout_width="match_parent"
                 android:layout_height="1dp"
-                android:background="@color/background" />
+                android:background="@color/divider_color" />
 
             <LinearLayout
                 android:id="@+id/layoutImport"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:background="@android:color/white"
+                android:background="?attr/colorSurface"
                 android:orientation="horizontal"
                 android:padding="16dp"
                 android:clickable="true"
@@ -302,13 +302,13 @@
             <View
                 android:layout_width="match_parent"
                 android:layout_height="1dp"
-                android:background="@color/background" />
+                android:background="@color/divider_color"/>
 
             <LinearLayout
                 android:id="@+id/layoutClearAll"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:background="@android:color/white"
+                android:background="?attr/colorSurface"
                 android:orientation="horizontal"
                 android:padding="16dp"
                 android:clickable="true"
@@ -335,7 +335,7 @@
             <View
                 android:layout_width="match_parent"
                 android:layout_height="1dp"
-                android:background="@color/background" />
+                android:background="@color/divider_color" />
 
             <!-- Раздел: О приложении -->
             <TextView
@@ -352,7 +352,7 @@
                 android:id="@+id/layoutAbout"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:background="@android:color/white"
+                android:background="?attr/colorSurface"
                 android:orientation="vertical"
                 android:padding="16dp"
                 android:clickable="true"

@@ -28,7 +28,7 @@
     <color name="on_primary">#FFFFFF</color>           <!-- White text on primary color -->
 
     <!-- Цвета для виджетов и элементов -->
-    <color name="divider_color">#404040</color>        <!-- Light divider lines -->
+    <color name="divider_color">#E0E0E0</color>        <!-- Light divider lines -->
     <color name="ripple_color">#1976D2</color>         <!-- Ripple effect color -->
     <color name="disabled_color">#BDBDBD</color>       <!-- Disabled elements -->
 
@@ -44,17 +44,4 @@
     <color name="dark_text_secondary">#B0B0B0</color>
     <color name="dark_primary">#42A5F5</color>         <!-- Lighter blue for dark theme -->
     <color name="dark_surface">#1E1E1E</color>
-
-    <!-- Дополнительные цвета для совместимости с темной темой -->
-    <color name="elevated_surface">#FFFFFF</color>      <!-- Higher elevation surfaces (light) -->
-    <color name="outline_color">#E0E0E0</color>         <!-- Outline/border color (light) -->
-    <color name="outline_variant">#BDBDBD</color>       <!-- Variant outline color (light) -->
-    <color name="inverse_surface">#212121</color>       <!-- Inverse surface (dark) -->
-    <color name="inverse_on_surface">#FFFFFF</color>    <!-- Text on inverse surface -->
-
-    <!-- Состояния элементов -->
-    <color name="state_disabled">#BDBDBD</color>        <!-- Disabled state (light) -->
-    <color name="state_pressed">#E3F2FD</color>         <!-- Pressed state background (light) -->
-    <color name="state_focused">#1976D2</color>         <!-- Focused state outline (light) -->
-    <color name="state_selected">#BBDEFB</color>        <!-- Selected state background (light) -->
 </resources>
