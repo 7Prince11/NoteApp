@@ -1,0 +1,140 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="@color/background">
+
+    <!-- Month Navigation Header -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="56dp"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingHorizontal="16dp"
+        android:background="?attr/colorSurface"
+        android:elevation="2dp">
+
+        <ImageButton
+            android:id="@+id/btnPrevMonth"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:src="@drawable/ic_chevron_left"
+            android:tint="@color/text_primary"
+            android:contentDescription="Previous month" />
+
+        <TextView
+            android:id="@+id/textMonthYear"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:gravity="center"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:textColor="@color/text_primary"
+            tools:text="December 2024" />
+
+        <ImageButton
+            android:id="@+id/btnNextMonth"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:src="@drawable/ic_chevron_right"
+            android:tint="@color/text_primary"
+            android:contentDescription="Next month" />
+
+    </LinearLayout>
+    <TextView
+        android:id="@+id/textCalendarInfo"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Показаны напоминания на ближайшие 7 дней"
+        android:textSize="12sp"
+        android:textColor="@color/text_secondary"
+        android:gravity="center"
+        android:paddingVertical="4dp"
+        android:background="@color/chip_background"/>
+    <!-- Week Days Header -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:paddingVertical="8dp"
+        android:background="@color/chip_background">
+
+        <TextView
+            style="@style/CalendarWeekHeader"
+            android:text="Пн" />
+        <TextView
+            style="@style/CalendarWeekHeader"
+            android:text="Вт" />
+        <TextView
+            style="@style/CalendarWeekHeader"
+            android:text="Ср" />
+        <TextView
+            style="@style/CalendarWeekHeader"
+            android:text="Чт" />
+        <TextView
+            style="@style/CalendarWeekHeader"
+            android:text="Пт" />
+        <TextView
+            style="@style/CalendarWeekHeader"
+            android:text="Сб" />
+        <TextView
+            style="@style/CalendarWeekHeader"
+            android:text="Вс" />
+
+    </LinearLayout>
+
+    <!-- Calendar Grid -->
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/calendarGrid"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:padding="4dp" />
+
+    <!-- Divider -->
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:layout_marginTop="8dp"
+        android:background="@color/divider_color" />
+
+    <!-- Selected Date Label -->
+    <TextView
+        android:id="@+id/textSelectedDate"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:padding="16dp"
+        android:textSize="16sp"
+        android:textStyle="bold"
+        android:textColor="@color/colorPrimary"
+        android:visibility="gone"
+        tools:text="Notes for December 15, 2024"
+        tools:visibility="visible" />
+
+    <!-- Notes for selected date -->
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/selectedDateNotes"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:clipToPadding="false"
+        android:padding="8dp"
+        android:scrollbars="vertical" />
+
+    <!-- Empty state for selected date -->
+    <TextView
+        android:id="@+id/emptyDateView"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:gravity="center"
+        android:text="Нет заметок на выбранную дату"
+        android:textColor="@color/text_secondary"
+        android:textSize="16sp"
+        android:visibility="gone" />
+
+</LinearLayout>

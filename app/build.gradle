@@ -30,6 +30,7 @@
 
         buildFeatures {
             viewBinding true
+
         }
     }
 

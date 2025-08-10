@@ -8,11 +8,13 @@ import android.appwidget.AppWidgetManager;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.os.Build;
 import android.os.Bundle;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
+import android.widget.ImageButton;
 import android.widget.TextView;
 import androidx.core.content.ContextCompat;
 import android.graphics.drawable.Drawable;
@@ -23,26 +25,51 @@ import com.google.android.material.snackbar.Snackbar;
 import androidx.recyclerview.widget.ItemTouchHelper;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
+import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
-
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
 
-public class MainActivity extends AppCompatActivity implements NoteAdapter.OnNoteListener {
+public class MainActivity extends AppCompatActivity implements NoteAdapter.OnNoteListener, CalendarAdapter.OnDateClickListener {
 
+    // List view components
+    private View listViewContainer;
     private RecyclerView recyclerView;
     private NoteAdapter noteAdapter;
     private List<Note> notesList;
-    private DatabaseHelper databaseHelper;
     private TextView emptyView;
+
+    // Calendar view components
+    private View calendarViewContainer;
+    private RecyclerView calendarGrid;
+    private CalendarAdapter calendarAdapter;
+    private ImageButton btnPrevMonth, btnNextMonth;
+    private TextView textMonthYear;
+    private TextView textSelectedDate;
+    private RecyclerView selectedDateNotes;
+    private TextView emptyDateView;
+    private NoteAdapter selectedDateAdapter;
+
+    // Common components
+    private DatabaseHelper databaseHelper;
     private FloatingActionButton fabAdd;
+    private boolean isCalendarView = false;
+    private Calendar currentCalendar;
+    private MenuItem toggleViewMenuItem;
 
     private static final String CHANNEL_ID = "notes_reminder_channel";
     private static final int ADD_NOTE_REQUEST = 1;
     private static final int EDIT_NOTE_REQUEST = 2;
+    private static final String PREFS_NAME = "NotesAppPrefs";
+    private static final String PREF_VIEW_MODE = "view_mode";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -54,9 +81,7 @@ public class MainActivity extends AppCompatActivity implements NoteAdapter.OnNot
         setSupportActionBar(toolbar);
 
         // Инициализация views
-        recyclerView = findViewById(R.id.recyclerView);
-        emptyView = findViewById(R.id.emptyView);
-        fabAdd = findViewById(R.id.fabAdd);
+        initializeViews();
 
         // Инициализация базы данных
         databaseHelper = new DatabaseHelper(this);
@@ -64,14 +89,14 @@ public class MainActivity extends AppCompatActivity implements NoteAdapter.OnNot
         // Создание канала уведомлений
         createNotificationChannel();
 
-        // Настройка RecyclerView
-        recyclerView.setLayoutManager(new LinearLayoutManager(this));
-        recyclerView.setHasFixedSize(true);
+        // Setup both views
+        setupListView();
+        setupCalendarView();
 
-        setupSwipes();
-
-        // Загрузка заметок
-        loadNotes();
+        // Restore view mode
+        SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+        isCalendarView = prefs.getBoolean(PREF_VIEW_MODE, false);
+        toggleView(isCalendarView);
 
         // Обработчик кнопки добавления
         fabAdd.setOnClickListener(new View.OnClickListener() {
@@ -81,6 +106,127 @@ public class MainActivity extends AppCompatActivity implements NoteAdapter.OnNot
                 startActivityForResult(intent, ADD_NOTE_REQUEST);
             }
         });
+    }
+
+    private void initializeViews() {
+        // List view
+        listViewContainer = findViewById(R.id.listViewContainer);
+        recyclerView = findViewById(R.id.recyclerView);
+        emptyView = findViewById(R.id.emptyView);
+
+        // Calendar view
+        calendarViewContainer = findViewById(R.id.calendarViewContainer);
+        calendarGrid = findViewById(R.id.calendarGrid);
+        btnPrevMonth = findViewById(R.id.btnPrevMonth);
+        btnNextMonth = findViewById(R.id.btnNextMonth);
+        textMonthYear = findViewById(R.id.textMonthYear);
+        textSelectedDate = findViewById(R.id.textSelectedDate);
+        selectedDateNotes = findViewById(R.id.selectedDateNotes);
+        emptyDateView = findViewById(R.id.emptyDateView);
+
+        // Common
+        fabAdd = findViewById(R.id.fabAdd);
+    }
+
+    private void setupListView() {
+        recyclerView.setLayoutManager(new LinearLayoutManager(this));
+        recyclerView.setHasFixedSize(true);
+        setupSwipes();
+        loadNotes();
+    }
+
+    private void setupCalendarView() {
+        currentCalendar = Calendar.getInstance();
+
+        // Setup calendar grid
+        calendarGrid.setLayoutManager(new GridLayoutManager(this, 7));
+        calendarAdapter = new CalendarAdapter(this, this);
+        calendarGrid.setAdapter(calendarAdapter);
+
+        // Setup selected date notes list
+        selectedDateNotes.setLayoutManager(new LinearLayoutManager(this));
+
+        // Month navigation
+        btnPrevMonth.setOnClickListener(v -> {
+            currentCalendar.add(Calendar.MONTH, -1);
+            updateCalendarDisplay();
+        });
+
+        btnNextMonth.setOnClickListener(v -> {
+            currentCalendar.add(Calendar.MONTH, 1);
+            updateCalendarDisplay();
+        });
+
+        updateCalendarDisplay();
+    }
+
+    private void updateCalendarDisplay() {
+        int year = currentCalendar.get(Calendar.YEAR);
+        int month = currentCalendar.get(Calendar.MONTH);
+
+        // Update month/year header
+        SimpleDateFormat monthFormat = new SimpleDateFormat("MMMM yyyy", new Locale("ru"));
+        textMonthYear.setText(monthFormat.format(currentCalendar.getTime()));
+
+        // Get notes count for the month
+        Map<String, Integer> notesCountMap = databaseHelper.getNotesCountForMonth(year, month);
+
+        // Get recurring reminder dates for the month
+        Set<String> recurringDates = databaseHelper.getRecurringDatesForMonth(year, month);
+
+        // Update calendar grid with both regular notes and recurring reminders
+        calendarAdapter.setMonth(year, month, notesCountMap, recurringDates);
+
+        // Clear selected date
+        textSelectedDate.setVisibility(View.GONE);
+        selectedDateNotes.setVisibility(View.GONE);
+        emptyDateView.setVisibility(View.GONE);
+    }
+    @Override
+    public void onDateClick(int year, int month, int day) {
+        // Format selected date
+        Calendar selectedDate = Calendar.getInstance();
+        selectedDate.set(year, month, day);
+        SimpleDateFormat dateFormat = new SimpleDateFormat("d MMMM yyyy", new Locale("ru"));
+        textSelectedDate.setText("Заметки за " + dateFormat.format(selectedDate.getTime()));
+        textSelectedDate.setVisibility(View.VISIBLE);
+
+        // Load notes for selected date
+        List<Note> dateNotes = databaseHelper.getNotesForDate(year, month, day);
+
+        if (dateNotes.isEmpty()) {
+            selectedDateNotes.setVisibility(View.GONE);
+            emptyDateView.setVisibility(View.VISIBLE);
+        } else {
+            emptyDateView.setVisibility(View.GONE);
+            selectedDateNotes.setVisibility(View.VISIBLE);
+            selectedDateAdapter = new NoteAdapter(this, dateNotes, this);
+            selectedDateNotes.setAdapter(selectedDateAdapter);
+        }
+    }
+
+    private void toggleView(boolean showCalendar) {
+        isCalendarView = showCalendar;
+
+        if (showCalendar) {
+            listViewContainer.setVisibility(View.GONE);
+            calendarViewContainer.setVisibility(View.VISIBLE);
+            updateCalendarDisplay();
+            if (toggleViewMenuItem != null) {
+                toggleViewMenuItem.setIcon(R.drawable.ic_list);
+            }
+        } else {
+            calendarViewContainer.setVisibility(View.GONE);
+            listViewContainer.setVisibility(View.VISIBLE);
+            loadNotes();
+            if (toggleViewMenuItem != null) {
+                toggleViewMenuItem.setIcon(R.drawable.ic_calendar);
+            }
+        }
+
+        // Save preference
+        SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+        prefs.edit().putBoolean(PREF_VIEW_MODE, showCalendar).apply();
     }
 
     private void loadNotes() {
@@ -105,7 +251,15 @@ public class MainActivity extends AppCompatActivity implements NoteAdapter.OnNot
 
     @Override
     public void onNoteClick(int position) {
-        Note note = notesList.get(position);
+        Note note;
+        if (isCalendarView && selectedDateAdapter != null) {
+            // Click from calendar date view
+            note = ((NoteAdapter) selectedDateNotes.getAdapter()).notesList.get(position);
+        } else {
+            // Click from main list view
+            note = notesList.get(position);
+        }
+
         Intent intent = new Intent(MainActivity.this, AddEditNoteActivity.class);
         intent.putExtra("note_id", note.getId());
         intent.putExtra("note_title", note.getTitle());
@@ -116,7 +270,16 @@ public class MainActivity extends AppCompatActivity implements NoteAdapter.OnNot
 
     @Override
     public void onDeleteClick(int position) {
-        Note note = notesList.get(position);
+        Note note;
+        RecyclerView.Adapter<?> adapter;
+
+        if (isCalendarView && selectedDateAdapter != null) {
+            note = ((NoteAdapter) selectedDateNotes.getAdapter()).notesList.get(position);
+            adapter = selectedDateNotes.getAdapter();
+        } else {
+            note = notesList.get(position);
+            adapter = noteAdapter;
+        }
 
         // Отмена уведомления если есть
         if (note.getReminderTime() > 0) {
@@ -127,22 +290,74 @@ public class MainActivity extends AppCompatActivity implements NoteAdapter.OnNot
         databaseHelper.deleteNote(note.getId());
 
         // Обновление списка
-        notesList.remove(position);
-        noteAdapter.notifyItemRemoved(position);
-
-        // Проверка на пустой список
-        if (notesList.isEmpty()) {
-            recyclerView.setVisibility(View.GONE);
-            emptyView.setVisibility(View.VISIBLE);
+        if (isCalendarView && selectedDateAdapter != null) {
+            ((NoteAdapter) adapter).notesList.remove(position);
+            adapter.notifyItemRemoved(position);
+            if (((NoteAdapter) adapter).notesList.isEmpty()) {
+                selectedDateNotes.setVisibility(View.GONE);
+                emptyDateView.setVisibility(View.VISIBLE);
+            }
+            // Update calendar indicators
+            updateCalendarDisplay();
+        } else {
+            notesList.remove(position);
+            noteAdapter.notifyItemRemoved(position);
+            if (notesList.isEmpty()) {
+                recyclerView.setVisibility(View.GONE);
+                emptyView.setVisibility(View.VISIBLE);
+            }
         }
     }
 
     @Override
     public void onCompleteClick(int position) {
-        Note note = notesList.get(position);
+        Note note;
+        RecyclerView.Adapter<?> adapter;
+
+        if (isCalendarView && selectedDateAdapter != null) {
+            note = ((NoteAdapter) selectedDateNotes.getAdapter()).notesList.get(position);
+            adapter = selectedDateNotes.getAdapter();
+        } else {
+            note = notesList.get(position);
+            adapter = noteAdapter;
+        }
+
         note.setCompleted(!note.isCompleted());
         databaseHelper.updateNote(note);
-        noteAdapter.notifyItemChanged(position);
+        adapter.notifyItemChanged(position);
+    }
+
+    @Override
+    public void onPinClick(int position) {
+        Note note;
+
+        if (isCalendarView && selectedDateAdapter != null) {
+            note = ((NoteAdapter) selectedDateNotes.getAdapter()).notesList.get(position);
+        } else {
+            note = notesList.get(position);
+        }
+
+        note.setPinned(!note.isPinned());
+        databaseHelper.updateNote(note);
+
+        if (!isCalendarView) {
+            // Re-sort list: pinned first, then not completed, then newest
+            java.util.Collections.sort(notesList, (a,b) -> {
+                if (a.isPinned() != b.isPinned()) return a.isPinned() ? -1 : 1;
+                if (a.isCompleted() != b.isCompleted()) return a.isCompleted() ? 1 : -1;
+                return Long.compare(b.getCreatedAt(), a.getCreatedAt());
+            });
+            noteAdapter.notifyDataSetChanged();
+        } else if (selectedDateAdapter != null) {
+            // Re-sort selected date notes
+            List<Note> dateNotes = ((NoteAdapter) selectedDateNotes.getAdapter()).notesList;
+            java.util.Collections.sort(dateNotes, (a,b) -> {
+                if (a.isPinned() != b.isPinned()) return a.isPinned() ? -1 : 1;
+                if (a.isCompleted() != b.isCompleted()) return a.isCompleted() ? 1 : -1;
+                return Long.compare(b.getCreatedAt(), a.getCreatedAt());
+            });
+            selectedDateAdapter.notifyDataSetChanged();
+        }
     }
 
     private void cancelNotification(int noteId) {
@@ -178,20 +393,35 @@ public class MainActivity extends AppCompatActivity implements NoteAdapter.OnNot
         super.onActivityResult(requestCode, resultCode, data);
 
         if (resultCode == RESULT_OK) {
-            loadNotes(); // Перезагрузка списка после добавления/редактирования
+            if (isCalendarView) {
+                updateCalendarDisplay();
+                // Refresh selected date if any
+                if (textSelectedDate.getVisibility() == View.VISIBLE) {
+                    // Re-trigger date click to refresh the list
+                    // You might want to store selected date and re-load it
+                }
+            } else {
+                loadNotes();
+            }
         }
     }
 
     @Override
     protected void onResume() {
         super.onResume();
-        loadNotes(); // Обновление списка при возврате к активности
-        updateWidget(); // Обновление виджета
+        if (isCalendarView) {
+            updateCalendarDisplay();
+        } else {
+            loadNotes();
+        }
+        updateWidget();
     }
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         getMenuInflater().inflate(R.menu.menu_main, menu);
+        toggleViewMenuItem = menu.findItem(R.id.action_toggle_view);
+        toggleViewMenuItem.setIcon(isCalendarView ? R.drawable.ic_list : R.drawable.ic_calendar);
         return true;
     }
 
@@ -199,7 +429,10 @@ public class MainActivity extends AppCompatActivity implements NoteAdapter.OnNot
     public boolean onOptionsItemSelected(MenuItem item) {
         int id = item.getItemId();
 
-        if (id == R.id.action_search) {
+        if (id == R.id.action_toggle_view) {
+            toggleView(!isCalendarView);
+            return true;
+        } else if (id == R.id.action_search) {
             Intent intent = new Intent(MainActivity.this, SearchActivity.class);
             startActivity(intent);
             return true;
@@ -217,7 +450,6 @@ public class MainActivity extends AppCompatActivity implements NoteAdapter.OnNot
         intent.setAction("com.example.notesapp.UPDATE_WIDGET");
         sendBroadcast(intent);
 
-        // Альтернативный способ обновления виджета
         AppWidgetManager appWidgetManager = AppWidgetManager.getInstance(this);
         int[] appWidgetIds = appWidgetManager.getAppWidgetIds(
                 new ComponentName(this, NotesWidgetProvider.class)
@@ -344,23 +576,6 @@ public class MainActivity extends AppCompatActivity implements NoteAdapter.OnNot
         new ItemTouchHelper(swipeCallback).attachToRecyclerView(recyclerView);
     }
 
-    @Override
-    public void onPinClick(int position) {
-        Note note = notesList.get(position);
-        note.setPinned(!note.isPinned());
-        databaseHelper.updateNote(note);
-
-        // Re-sort list: pinned first, then not completed, then newest
-        java.util.Collections.sort(notesList, (a,b) -> {
-            if (a.isPinned() != b.isPinned()) return a.isPinned() ? -1 : 1;
-            if (a.isCompleted() != b.isCompleted()) return a.isCompleted() ? 1 : -1;
-            return Long.compare(b.getCreatedAt(), a.getCreatedAt());
-        });
-
-        noteAdapter.notifyDataSetChanged();
-        // (optional) update widget if you want immediate reflect
-        // updateWidget();
-    }
     private void scheduleNotification(Note note) {
         Intent intent = new Intent(this, NotificationReceiver.class);
         intent.putExtra("note_id", note.getId());
@@ -384,5 +599,4 @@ public class MainActivity extends AppCompatActivity implements NoteAdapter.OnNot
             alarmManager.setExact(AlarmManager.RTC_WAKEUP, when, pendingIntent);
         }
     }
-
 }

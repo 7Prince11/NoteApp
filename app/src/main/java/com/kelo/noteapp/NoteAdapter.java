@@ -27,7 +27,7 @@ import java.util.Locale;
 public class NoteAdapter extends RecyclerView.Adapter<NoteAdapter.NoteViewHolder> {
 
     private final Context context;
-    private final List<Note> notesList;
+    public final List<Note> notesList;
     private final OnNoteListener onNoteListener;
 
     public interface OnNoteListener {

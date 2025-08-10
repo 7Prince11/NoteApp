@@ -22,34 +22,48 @@
 
     </com.google.android.material.appbar.AppBarLayout>
 
-    <RelativeLayout
+    <FrameLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         app:layout_behavior="@string/appbar_scrolling_view_behavior">
 
-        <androidx.recyclerview.widget.RecyclerView
-            android:id="@+id/recyclerView"
+        <!-- List View -->
+        <RelativeLayout
+            android:id="@+id/listViewContainer"
             android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:clipToPadding="false"
-            android:padding="8dp"
-            android:scrollbars="vertical"
-            tools:listitem="@layout/item_note" />
+            android:layout_height="match_parent">
 
-        <TextView
-            android:id="@+id/emptyView"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_centerInParent="true"
-            android:drawableTop="@drawable/ic_empty_notes"
-            android:drawablePadding="16dp"
-            android:gravity="center"
-            android:text="Нет заметок\nНажмите + чтобы добавить"
-            android:textColor="@color/text_secondary"
-            android:textSize="16sp"
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/recyclerView"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:clipToPadding="false"
+                android:padding="8dp"
+                android:scrollbars="vertical"
+                tools:listitem="@layout/item_note" />
+
+            <TextView
+                android:id="@+id/emptyView"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_centerInParent="true"
+                android:drawableTop="@drawable/ic_empty_notes"
+                android:drawablePadding="16dp"
+                android:gravity="center"
+                android:text="Нет заметок\nНажмите + чтобы добавить"
+                android:textColor="@color/text_secondary"
+                android:textSize="16sp"
+                android:visibility="gone" />
+
+        </RelativeLayout>
+
+        <!-- Calendar View -->
+        <include
+            android:id="@+id/calendarViewContainer"
+            layout="@layout/view_calendar"
             android:visibility="gone" />
 
-    </RelativeLayout>
+    </FrameLayout>
 
     <com.google.android.material.floatingactionbutton.FloatingActionButton
         android:id="@+id/fabAdd"

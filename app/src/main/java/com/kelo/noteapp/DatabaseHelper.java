@@ -7,7 +7,12 @@ import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
 
 import java.util.ArrayList;
+import java.util.Calendar;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 public class DatabaseHelper extends SQLiteOpenHelper {
 
@@ -24,7 +29,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     private static final String COLUMN_REMINDER_TIME = "reminder_time";
     private static final String COLUMN_IS_COMPLETED = "is_completed";
     private static final String COLUMN_IS_PINNED = "is_pinned";
-    private static final String COLUMN_REPEAT_DAYS = "repeat_days"; // NEW
+    private static final String COLUMN_REPEAT_DAYS = "repeat_days";
 
     // Create
     private static final String CREATE_TABLE_NOTES = "CREATE TABLE " + TABLE_NOTES + "("
@@ -130,7 +135,189 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         return list;
     }
 
-    // Active notes (example)
+    // Get notes with reminders for a specific date (ONLY FUTURE REMINDERS)
+    List<Note> getNotesForDate(int year, int month, int day) {
+        List<Note> list = new ArrayList<>();
+
+        // Create calendar for the selected date
+        Calendar dateCal = Calendar.getInstance();
+        dateCal.set(year, month, day, 0, 0, 0);
+        dateCal.set(Calendar.MILLISECOND, 0);
+        long startTime = dateCal.getTimeInMillis();
+
+        Calendar endCal = Calendar.getInstance();
+        endCal.set(year, month, day, 23, 59, 59);
+        endCal.set(Calendar.MILLISECOND, 999);
+        long endTime = endCal.getTimeInMillis();
+
+        // Current time for filtering past reminders
+        long currentTime = System.currentTimeMillis();
+
+        // Only show if the selected date is today or in the future
+        if (startTime < currentTime) {
+            // If selected date is in the past, only show from current time
+            startTime = currentTime;
+        }
+
+        // Get all notes with reminders
+        String sql = "SELECT * FROM " + TABLE_NOTES +
+                " WHERE " + COLUMN_REMINDER_TIME + " > 0 OR " + COLUMN_REPEAT_DAYS + " != 0" +
+                " ORDER BY " + COLUMN_IS_PINNED + " DESC, " +
+                COLUMN_IS_COMPLETED + " ASC, " +
+                COLUMN_CREATED_AT + " DESC";
+
+        SQLiteDatabase db = this.getReadableDatabase();
+        Cursor c = db.rawQuery(sql, null);
+
+        if (c.moveToFirst()) {
+            do {
+                Note n = new Note();
+                n.setId(c.getInt(c.getColumnIndex(COLUMN_ID)));
+                n.setTitle(c.getString(c.getColumnIndex(COLUMN_TITLE)));
+                n.setContent(c.getString(c.getColumnIndex(COLUMN_CONTENT)));
+                n.setCreatedAt(c.getLong(c.getColumnIndex(COLUMN_CREATED_AT)));
+                n.setReminderTime(c.getLong(c.getColumnIndex(COLUMN_REMINDER_TIME)));
+                n.setCompleted(c.getInt(c.getColumnIndex(COLUMN_IS_COMPLETED)) == 1);
+                n.setPinned(c.getInt(c.getColumnIndex(COLUMN_IS_PINNED)) == 1);
+                n.setRepeatDays(c.getInt(c.getColumnIndex(COLUMN_REPEAT_DAYS)));
+
+                // Check if it has a one-time reminder on this date (and it's in the future)
+                if (n.getReminderTime() >= startTime && n.getReminderTime() <= endTime) {
+                    list.add(n);
+                }
+                // Or if it's a recurring reminder for this day (and the date is not in the past)
+                else if (n.getRepeatDays() != 0 && startTime >= currentTime) {
+                    int dayOfWeek = dateCal.get(Calendar.DAY_OF_WEEK);
+                    int bitIndex = convertDayOfWeekToBitIndex(dayOfWeek);
+                    if (((n.getRepeatDays() >> bitIndex) & 1) == 1) {
+                        // This recurring reminder applies to this day
+                        list.add(n);
+                    }
+                }
+            } while (c.moveToNext());
+        }
+        c.close();
+        db.close();
+        return list;
+    }
+
+    // Get FUTURE reminders count for each day in a month (max 7 days ahead)
+    Map<String, Integer> getNotesCountForMonth(int year, int month) {
+        Map<String, Integer> countMap = new HashMap<>();
+
+        Calendar today = Calendar.getInstance();
+        today.set(Calendar.HOUR_OF_DAY, 0);
+        today.set(Calendar.MINUTE, 0);
+        today.set(Calendar.SECOND, 0);
+        today.set(Calendar.MILLISECOND, 0);
+        long todayStart = today.getTimeInMillis();
+
+        // Only process days from today onwards
+        Calendar cal = Calendar.getInstance();
+        cal.set(year, month, 1, 0, 0, 0);
+        cal.set(Calendar.MILLISECOND, 0);
+
+        int daysInMonth = cal.getActualMaximum(Calendar.DAY_OF_MONTH);
+
+        // Get all notes with reminders
+        SQLiteDatabase db = this.getReadableDatabase();
+        Cursor c = db.rawQuery("SELECT * FROM " + TABLE_NOTES +
+                " WHERE " + COLUMN_REMINDER_TIME + " > 0 AND " +
+                COLUMN_IS_COMPLETED + " = 0", null);
+
+        if (c.moveToFirst()) {
+            do {
+                long reminderTime = c.getLong(c.getColumnIndex(COLUMN_REMINDER_TIME));
+
+                // Only count future one-time reminders
+                if (reminderTime >= todayStart) {
+                    Calendar reminderCal = Calendar.getInstance();
+                    reminderCal.setTimeInMillis(reminderTime);
+
+                    if (reminderCal.get(Calendar.YEAR) == year &&
+                            reminderCal.get(Calendar.MONTH) == month) {
+                        String dateKey = String.format("%04d-%02d-%02d",
+                                year, month + 1, reminderCal.get(Calendar.DAY_OF_MONTH));
+                        countMap.put(dateKey, countMap.getOrDefault(dateKey, 0) + 1);
+                    }
+                }
+            } while (c.moveToNext());
+        }
+        c.close();
+        db.close();
+
+        return countMap;
+    }
+
+    // Get recurring reminder dates for NEXT 7 DAYS ONLY
+    Set<String> getRecurringDatesForMonth(int year, int month) {
+        Set<String> recurringDates = new HashSet<>();
+
+        // Get today's date
+        Calendar today = Calendar.getInstance();
+        today.set(Calendar.HOUR_OF_DAY, 0);
+        today.set(Calendar.MINUTE, 0);
+        today.set(Calendar.SECOND, 0);
+        today.set(Calendar.MILLISECOND, 0);
+
+        // Calculate 7 days from today
+        Calendar weekAhead = (Calendar) today.clone();
+        weekAhead.add(Calendar.DAY_OF_MONTH, 7);
+
+        SQLiteDatabase db = this.getReadableDatabase();
+        Cursor c = db.rawQuery("SELECT * FROM " + TABLE_NOTES +
+                " WHERE " + COLUMN_REPEAT_DAYS + " != 0 AND " +
+                COLUMN_IS_COMPLETED + " = 0", null);
+
+        if (c.moveToFirst()) {
+            do {
+                int repeatDays = c.getInt(c.getColumnIndex(COLUMN_REPEAT_DAYS));
+
+                // Check each day for the next 7 days
+                Calendar checkDate = (Calendar) today.clone();
+                for (int i = 0; i < 7; i++) {
+                    // Only add if it's in the requested month/year
+                    if (checkDate.get(Calendar.YEAR) == year &&
+                            checkDate.get(Calendar.MONTH) == month) {
+
+                        int dayOfWeek = checkDate.get(Calendar.DAY_OF_WEEK);
+                        int bitIndex = convertDayOfWeekToBitIndex(dayOfWeek);
+
+                        if (((repeatDays >> bitIndex) & 1) == 1) {
+                            String dateKey = String.format("%04d-%02d-%02d",
+                                    checkDate.get(Calendar.YEAR),
+                                    checkDate.get(Calendar.MONTH) + 1,
+                                    checkDate.get(Calendar.DAY_OF_MONTH));
+                            recurringDates.add(dateKey);
+                        }
+                    }
+                    checkDate.add(Calendar.DAY_OF_MONTH, 1);
+                }
+            } while (c.moveToNext());
+        }
+        c.close();
+        db.close();
+
+        return recurringDates;
+    }
+
+    // Convert Calendar.DAY_OF_WEEK to our bit index
+    // Our system: Mon=0, Tue=1, Wed=2, Thu=3, Fri=4, Sat=5, Sun=6
+    // Calendar: Sun=1, Mon=2, Tue=3, Wed=4, Thu=5, Fri=6, Sat=7
+    private int convertDayOfWeekToBitIndex(int calendarDayOfWeek) {
+        switch (calendarDayOfWeek) {
+            case Calendar.MONDAY: return 0;
+            case Calendar.TUESDAY: return 1;
+            case Calendar.WEDNESDAY: return 2;
+            case Calendar.THURSDAY: return 3;
+            case Calendar.FRIDAY: return 4;
+            case Calendar.SATURDAY: return 5;
+            case Calendar.SUNDAY: return 6;
+            default: return 0;
+        }
+    }
+
+    // Active notes
     List<Note> getActiveNotes() {
         List<Note> list = new ArrayList<>();
         String sql = "SELECT * FROM " + TABLE_NOTES +
