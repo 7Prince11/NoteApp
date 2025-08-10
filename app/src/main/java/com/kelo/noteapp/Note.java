@@ -11,9 +11,13 @@ public class Note implements Serializable {
     private boolean isCompleted;
     private boolean isPinned;
 
+    // NEW: bitmask for repeat days: Mon=1<<0 ... Sun=1<<6
+    private int repeatDays;
+
     public Note() {
         this.isCompleted = false;
         this.isPinned = false;
+        this.repeatDays = 0;
     }
 
     // Getters
@@ -24,6 +28,7 @@ public class Note implements Serializable {
     public long getReminderTime() { return reminderTime; }
     public boolean isCompleted() { return isCompleted; }
     public boolean isPinned() { return isPinned; }
+    public int getRepeatDays() { return repeatDays; }
 
     // Setters
     public void setId(int id) { this.id = id; }
@@ -33,13 +38,10 @@ public class Note implements Serializable {
     public void setReminderTime(long reminderTime) { this.reminderTime = reminderTime; }
     public void setCompleted(boolean completed) { isCompleted = completed; }
     public void setPinned(boolean pinned) { isPinned = pinned; }
+    public void setRepeatDays(int repeatDays) { this.repeatDays = repeatDays; }
 
     // Helpers
-    public boolean hasReminder() {
-        return reminderTime > 0;
-    }
-
-    public boolean isReminderExpired() {
-        return hasReminder() && reminderTime < System.currentTimeMillis();
-    }
+    public boolean hasReminder() { return reminderTime > 0; }
+    public boolean isReminderExpired() { return hasReminder() && reminderTime < System.currentTimeMillis(); }
+    public boolean isRepeating() { return repeatDays != 0; }
 }

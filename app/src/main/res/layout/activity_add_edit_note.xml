@@ -98,6 +98,11 @@
                     app:chipIcon="@drawable/ic_alarm"
                     app:chipStrokeColor="@color/colorPrimary"
                     app:chipStrokeWidth="1dp" />
+                <!-- Selected date/time -->
+
+
+                <!-- NEW: repeat days line -->
+
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -129,7 +134,16 @@
                         tools:visibility="visible" />
 
                 </LinearLayout>
-
+                <TextView
+                    android:id="@+id/textRepeatDays"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:text="Повтор: Пн, Ср, Пт"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="14sp"
+                    android:visibility="gone"
+                    tools:visibility="visible" />
             </LinearLayout>
 
         </LinearLayout>

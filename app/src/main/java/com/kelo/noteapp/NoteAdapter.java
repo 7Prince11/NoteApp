@@ -1,7 +1,9 @@
 package com.kelo.noteapp;
 
 import android.content.Context;
+import android.content.SharedPreferences;
 import android.graphics.Paint;
+import android.os.Build;
 import android.view.LayoutInflater;
 import android.view.MenuItem;
 import android.view.View;
@@ -66,11 +68,18 @@ public class NoteAdapter extends RecyclerView.Adapter<NoteAdapter.NoteViewHolder
             holder.textReminderTime.setVisibility(View.VISIBLE);
             if (note.isReminderExpired()) {
                 holder.textReminderTime.setText("Просрочено");
-                holder.textReminderTime.setTextColor(context.getColor(android.R.color.holo_red_dark));
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    holder.textReminderTime.setTextColor(context.getColor(android.R.color.holo_red_dark));
+                }
             } else {
-                SimpleDateFormat rtf = new SimpleDateFormat("dd MMM, HH:mm", new Locale("ru"));
+                SimpleDateFormat rtf = new SimpleDateFormat(
+                        use24HourFormat() ? "dd MMM, HH:mm" : "dd MMM, hh:mm a",
+                        new Locale("ru")
+                );
                 holder.textReminderTime.setText(rtf.format(new Date(note.getReminderTime())));
-                holder.textReminderTime.setTextColor(context.getColor(android.R.color.holo_blue_dark));
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    holder.textReminderTime.setTextColor(context.getColor(android.R.color.holo_blue_dark));
+                }
             }
         } else {
             holder.iconReminder.setVisibility(View.GONE);
@@ -161,5 +170,10 @@ public class NoteAdapter extends RecyclerView.Adapter<NoteAdapter.NoteViewHolder
             checkboxComplete = itemView.findViewById(R.id.checkboxComplete);
             btnDelete = itemView.findViewById(R.id.btnDelete);
         }
+    }
+
+    private boolean use24HourFormat() {
+        SharedPreferences prefs = context.getSharedPreferences("NotesAppPrefs", Context.MODE_PRIVATE);
+        return prefs.getBoolean("time_24h", true);
     }
 }

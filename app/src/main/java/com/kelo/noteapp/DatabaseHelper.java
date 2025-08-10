@@ -5,12 +5,14 @@ import android.content.Context;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
+
 import java.util.ArrayList;
 import java.util.List;
 
 public class DatabaseHelper extends SQLiteOpenHelper {
 
-    private static final int DATABASE_VERSION = 2; // bumped
+    // Bump DB version to add repeat_days
+    private static final int DATABASE_VERSION = 3;
     private static final String DATABASE_NAME = "NotesDatabase.db";
 
     // Table & columns
@@ -22,8 +24,9 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     private static final String COLUMN_REMINDER_TIME = "reminder_time";
     private static final String COLUMN_IS_COMPLETED = "is_completed";
     private static final String COLUMN_IS_PINNED = "is_pinned";
+    private static final String COLUMN_REPEAT_DAYS = "repeat_days"; // NEW
 
-    // Create table
+    // Create
     private static final String CREATE_TABLE_NOTES = "CREATE TABLE " + TABLE_NOTES + "("
             + COLUMN_ID + " INTEGER PRIMARY KEY AUTOINCREMENT,"
             + COLUMN_TITLE + " TEXT NOT NULL,"
@@ -31,7 +34,8 @@ public class DatabaseHelper extends SQLiteOpenHelper {
             + COLUMN_CREATED_AT + " INTEGER,"
             + COLUMN_REMINDER_TIME + " INTEGER DEFAULT 0,"
             + COLUMN_IS_COMPLETED + " INTEGER DEFAULT 0,"
-            + COLUMN_IS_PINNED + " INTEGER DEFAULT 0"
+            + COLUMN_IS_PINNED + " INTEGER DEFAULT 0,"
+            + COLUMN_REPEAT_DAYS + " INTEGER DEFAULT 0"
             + ")";
 
     public DatabaseHelper(Context context) {
@@ -44,16 +48,19 @@ public class DatabaseHelper extends SQLiteOpenHelper {
 
     @Override
     public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
-        // Migration to v2: add is_pinned column (preserve data)
+        // v2 added is_pinned
         if (oldVersion < 2) {
             db.execSQL("ALTER TABLE " + TABLE_NOTES + " ADD COLUMN " + COLUMN_IS_PINNED + " INTEGER DEFAULT 0");
+        }
+        // v3 adds repeat_days
+        if (oldVersion < 3) {
+            db.execSQL("ALTER TABLE " + TABLE_NOTES + " ADD COLUMN " + COLUMN_REPEAT_DAYS + " INTEGER DEFAULT 0");
         }
     }
 
     // Create
     long addNote(Note note) {
         SQLiteDatabase db = this.getWritableDatabase();
-
         ContentValues values = new ContentValues();
         values.put(COLUMN_TITLE, note.getTitle());
         values.put(COLUMN_CONTENT, note.getContent());
@@ -61,7 +68,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         values.put(COLUMN_REMINDER_TIME, note.getReminderTime());
         values.put(COLUMN_IS_COMPLETED, note.isCompleted() ? 1 : 0);
         values.put(COLUMN_IS_PINNED, note.isPinned() ? 1 : 0);
-
+        values.put(COLUMN_REPEAT_DAYS, note.getRepeatDays());
         long id = db.insert(TABLE_NOTES, null, values);
         db.close();
         return id;
@@ -70,140 +77,124 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     // Read one
     Note getNote(int id) {
         SQLiteDatabase db = this.getReadableDatabase();
-
-        Cursor cursor = db.query(
+        Cursor c = db.query(
                 TABLE_NOTES,
-                new String[]{COLUMN_ID, COLUMN_TITLE, COLUMN_CONTENT,
-                        COLUMN_CREATED_AT, COLUMN_REMINDER_TIME, COLUMN_IS_COMPLETED, COLUMN_IS_PINNED},
+                new String[]{COLUMN_ID, COLUMN_TITLE, COLUMN_CONTENT, COLUMN_CREATED_AT,
+                        COLUMN_REMINDER_TIME, COLUMN_IS_COMPLETED, COLUMN_IS_PINNED, COLUMN_REPEAT_DAYS},
                 COLUMN_ID + "=?",
-                new String[]{String.valueOf(id)},
-                null, null, null
+                new String[]{String.valueOf(id)}, null, null, null
         );
 
-        if (cursor != null && cursor.moveToFirst()) {
-            Note note = new Note();
-            note.setId(cursor.getInt(cursor.getColumnIndex(COLUMN_ID)));
-            note.setTitle(cursor.getString(cursor.getColumnIndex(COLUMN_TITLE)));
-            note.setContent(cursor.getString(cursor.getColumnIndex(COLUMN_CONTENT)));
-            note.setCreatedAt(cursor.getLong(cursor.getColumnIndex(COLUMN_CREATED_AT)));
-            note.setReminderTime(cursor.getLong(cursor.getColumnIndex(COLUMN_REMINDER_TIME)));
-            note.setCompleted(cursor.getInt(cursor.getColumnIndex(COLUMN_IS_COMPLETED)) == 1);
-            note.setPinned(cursor.getInt(cursor.getColumnIndex(COLUMN_IS_PINNED)) == 1);
-            cursor.close();
-            return note;
+        Note note = null;
+        if (c != null && c.moveToFirst()) {
+            note = new Note();
+            note.setId(c.getInt(c.getColumnIndex(COLUMN_ID)));
+            note.setTitle(c.getString(c.getColumnIndex(COLUMN_TITLE)));
+            note.setContent(c.getString(c.getColumnIndex(COLUMN_CONTENT)));
+            note.setCreatedAt(c.getLong(c.getColumnIndex(COLUMN_CREATED_AT)));
+            note.setReminderTime(c.getLong(c.getColumnIndex(COLUMN_REMINDER_TIME)));
+            note.setCompleted(c.getInt(c.getColumnIndex(COLUMN_IS_COMPLETED)) == 1);
+            note.setPinned(c.getInt(c.getColumnIndex(COLUMN_IS_PINNED)) == 1);
+            note.setRepeatDays(c.getInt(c.getColumnIndex(COLUMN_REPEAT_DAYS)));
         }
-        if (cursor != null) cursor.close();
-        return null;
+        if (c != null) c.close();
+        db.close();
+        return note;
     }
 
     // Read all — pinned first, then not completed, then newest
     List<Note> getAllNotes() {
-        List<Note> notesList = new ArrayList<>();
-
-        String selectQuery = "SELECT * FROM " + TABLE_NOTES +
+        List<Note> list = new ArrayList<>();
+        String sql = "SELECT * FROM " + TABLE_NOTES +
                 " ORDER BY " + COLUMN_IS_PINNED + " DESC, " +
                 COLUMN_IS_COMPLETED + " ASC, " +
                 COLUMN_CREATED_AT + " DESC";
-
         SQLiteDatabase db = this.getReadableDatabase();
-        Cursor cursor = db.rawQuery(selectQuery, null);
-
-        if (cursor.moveToFirst()) {
+        Cursor c = db.rawQuery(sql, null);
+        if (c.moveToFirst()) {
             do {
-                Note note = new Note();
-                note.setId(cursor.getInt(cursor.getColumnIndex(COLUMN_ID)));
-                note.setTitle(cursor.getString(cursor.getColumnIndex(COLUMN_TITLE)));
-                note.setContent(cursor.getString(cursor.getColumnIndex(COLUMN_CONTENT)));
-                note.setCreatedAt(cursor.getLong(cursor.getColumnIndex(COLUMN_CREATED_AT)));
-                note.setReminderTime(cursor.getLong(cursor.getColumnIndex(COLUMN_REMINDER_TIME)));
-                note.setCompleted(cursor.getInt(cursor.getColumnIndex(COLUMN_IS_COMPLETED)) == 1);
-                note.setPinned(cursor.getInt(cursor.getColumnIndex(COLUMN_IS_PINNED)) == 1);
-                notesList.add(note);
-            } while (cursor.moveToNext());
+                Note n = new Note();
+                n.setId(c.getInt(c.getColumnIndex(COLUMN_ID)));
+                n.setTitle(c.getString(c.getColumnIndex(COLUMN_TITLE)));
+                n.setContent(c.getString(c.getColumnIndex(COLUMN_CONTENT)));
+                n.setCreatedAt(c.getLong(c.getColumnIndex(COLUMN_CREATED_AT)));
+                n.setReminderTime(c.getLong(c.getColumnIndex(COLUMN_REMINDER_TIME)));
+                n.setCompleted(c.getInt(c.getColumnIndex(COLUMN_IS_COMPLETED)) == 1);
+                n.setPinned(c.getInt(c.getColumnIndex(COLUMN_IS_PINNED)) == 1);
+                n.setRepeatDays(c.getInt(c.getColumnIndex(COLUMN_REPEAT_DAYS)));
+                list.add(n);
+            } while (c.moveToNext());
         }
-
-        cursor.close();
+        c.close();
         db.close();
-        return notesList;
+        return list;
     }
 
-    // Read active (not completed), still ordered with pinned first
+    // Active notes (example)
     List<Note> getActiveNotes() {
-        List<Note> notesList = new ArrayList<>();
-
-        String selectQuery = "SELECT * FROM " + TABLE_NOTES +
+        List<Note> list = new ArrayList<>();
+        String sql = "SELECT * FROM " + TABLE_NOTES +
                 " WHERE " + COLUMN_IS_COMPLETED + " = 0 " +
-                " ORDER BY " + COLUMN_IS_PINNED + " DESC, " +
-                COLUMN_CREATED_AT + " DESC";
-
+                " ORDER BY " + COLUMN_IS_PINNED + " DESC, " + COLUMN_CREATED_AT + " DESC";
         SQLiteDatabase db = this.getReadableDatabase();
-        Cursor cursor = db.rawQuery(selectQuery, null);
-
-        if (cursor.moveToFirst()) {
+        Cursor c = db.rawQuery(sql, null);
+        if (c.moveToFirst()) {
             do {
-                Note note = new Note();
-                note.setId(cursor.getInt(cursor.getColumnIndex(COLUMN_ID)));
-                note.setTitle(cursor.getString(cursor.getColumnIndex(COLUMN_TITLE)));
-                note.setContent(cursor.getString(cursor.getColumnIndex(COLUMN_CONTENT)));
-                note.setCreatedAt(cursor.getLong(cursor.getColumnIndex(COLUMN_CREATED_AT)));
-                note.setReminderTime(cursor.getLong(cursor.getColumnIndex(COLUMN_REMINDER_TIME)));
-                note.setCompleted(cursor.getInt(cursor.getColumnIndex(COLUMN_IS_COMPLETED)) == 1);
-                note.setPinned(cursor.getInt(cursor.getColumnIndex(COLUMN_IS_PINNED)) == 1);
-                notesList.add(note);
-            } while (cursor.moveToNext());
+                Note n = new Note();
+                n.setId(c.getInt(c.getColumnIndex(COLUMN_ID)));
+                n.setTitle(c.getString(c.getColumnIndex(COLUMN_TITLE)));
+                n.setContent(c.getString(c.getColumnIndex(COLUMN_CONTENT)));
+                n.setCreatedAt(c.getLong(c.getColumnIndex(COLUMN_CREATED_AT)));
+                n.setReminderTime(c.getLong(c.getColumnIndex(COLUMN_REMINDER_TIME)));
+                n.setCompleted(c.getInt(c.getColumnIndex(COLUMN_IS_COMPLETED)) == 1);
+                n.setPinned(c.getInt(c.getColumnIndex(COLUMN_IS_PINNED)) == 1);
+                n.setRepeatDays(c.getInt(c.getColumnIndex(COLUMN_REPEAT_DAYS)));
+                list.add(n);
+            } while (c.moveToNext());
         }
-
-        cursor.close();
+        c.close();
         db.close();
-        return notesList;
+        return list;
     }
 
     // Update
     int updateNote(Note note) {
         SQLiteDatabase db = this.getWritableDatabase();
-
         ContentValues values = new ContentValues();
         values.put(COLUMN_TITLE, note.getTitle());
         values.put(COLUMN_CONTENT, note.getContent());
         values.put(COLUMN_REMINDER_TIME, note.getReminderTime());
         values.put(COLUMN_IS_COMPLETED, note.isCompleted() ? 1 : 0);
         values.put(COLUMN_IS_PINNED, note.isPinned() ? 1 : 0);
-
-        int rowsAffected = db.update(
-                TABLE_NOTES,
-                values,
-                COLUMN_ID + " = ?",
-                new String[]{String.valueOf(note.getId())}
-        );
-
+        values.put(COLUMN_REPEAT_DAYS, note.getRepeatDays());
+        int rows = db.update(TABLE_NOTES, values, COLUMN_ID + " = ?", new String[]{String.valueOf(note.getId())});
         db.close();
-        return rowsAffected;
+        return rows;
     }
-    // Удалить все заметки
+
+    // Delete
+    void deleteNote(int id) {
+        SQLiteDatabase db = this.getWritableDatabase();
+        db.delete(TABLE_NOTES, COLUMN_ID + " = ?", new String[]{String.valueOf(id)});
+        db.close();
+    }
+
+    // Extra utils already used in Settings
     void deleteAllNotes() {
         SQLiteDatabase db = this.getWritableDatabase();
         db.delete(TABLE_NOTES, null, null);
         db.close();
     }
 
-    // Количество заметок
     int getNotesCount() {
         SQLiteDatabase db = this.getReadableDatabase();
-        Cursor cursor = db.rawQuery("SELECT COUNT(*) FROM " + TABLE_NOTES, null);
+        Cursor c = db.rawQuery("SELECT COUNT(*) FROM " + TABLE_NOTES, null);
         int count = 0;
-        if (cursor != null) {
-            if (cursor.moveToFirst()) {
-                count = cursor.getInt(0);
-            }
-            cursor.close();
+        if (c != null) {
+            if (c.moveToFirst()) count = c.getInt(0);
+            c.close();
         }
         db.close();
         return count;
-    }
-    // Delete
-    void deleteNote(int id) {
-        SQLiteDatabase db = this.getWritableDatabase();
-        db.delete(TABLE_NOTES, COLUMN_ID + " = ?", new String[]{String.valueOf(id)});
-        db.close();
     }
 }
