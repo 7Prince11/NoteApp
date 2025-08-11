@@ -74,7 +74,7 @@ public class NoteAdapter extends RecyclerView.Adapter<NoteAdapter.NoteViewHolder
                 holder.textReminderTime.setTextColor(ContextCompat.getColor(context, android.R.color.holo_red_dark));
             } else {
                 SimpleDateFormat rtf = new SimpleDateFormat(
-                        use24HourFormat() ? "dd MMM, HH:mm" : "dd MMM, hh:mm a",
+                        use24HourFormat() ? "dd MMM HH:mm" : "dd MMM hh:mm a",
                         new Locale("ru")
                 );
                 holder.textReminderTime.setText(rtf.format(new Date(note.getReminderTime())));
