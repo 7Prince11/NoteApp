@@ -3,7 +3,8 @@ package com.kelo.noteapp;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.graphics.Paint;
-import android.os.Build;
+import android.graphics.drawable.Drawable;
+import android.graphics.drawable.GradientDrawable;
 import android.view.LayoutInflater;
 import android.view.MenuItem;
 import android.view.View;
@@ -17,6 +18,7 @@ import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.cardview.widget.CardView;
+import androidx.core.content.ContextCompat;
 import androidx.recyclerview.widget.RecyclerView;
 
 import java.text.SimpleDateFormat;
@@ -48,6 +50,7 @@ public class NoteAdapter extends RecyclerView.Adapter<NoteAdapter.NoteViewHolder
     public NoteViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
         View view = LayoutInflater.from(context).inflate(R.layout.item_note, parent, false);
         return new NoteViewHolder(view, onNoteListener);
+
     }
 
     @Override
@@ -57,7 +60,7 @@ public class NoteAdapter extends RecyclerView.Adapter<NoteAdapter.NoteViewHolder
         // Title & content
         holder.textTitle.setText(note.getTitle());
         holder.textContent.setText(note.getContent());
-
+        holder.textPinnedBadge.setVisibility(note.isPinned() ? View.VISIBLE : View.GONE);
         // Created date
         SimpleDateFormat sdf = new SimpleDateFormat("dd MMM yyyy", new Locale("ru"));
         holder.textDate.setText(sdf.format(new Date(note.getCreatedAt())));
@@ -68,18 +71,14 @@ public class NoteAdapter extends RecyclerView.Adapter<NoteAdapter.NoteViewHolder
             holder.textReminderTime.setVisibility(View.VISIBLE);
             if (note.isReminderExpired()) {
                 holder.textReminderTime.setText("Просрочено");
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                    holder.textReminderTime.setTextColor(context.getColor(android.R.color.holo_red_dark));
-                }
+                holder.textReminderTime.setTextColor(ContextCompat.getColor(context, android.R.color.holo_red_dark));
             } else {
                 SimpleDateFormat rtf = new SimpleDateFormat(
                         use24HourFormat() ? "dd MMM, HH:mm" : "dd MMM, hh:mm a",
                         new Locale("ru")
                 );
                 holder.textReminderTime.setText(rtf.format(new Date(note.getReminderTime())));
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                    holder.textReminderTime.setTextColor(context.getColor(android.R.color.holo_blue_dark));
-                }
+                holder.textReminderTime.setTextColor(ContextCompat.getColor(context, android.R.color.holo_blue_dark));
             }
         } else {
             holder.iconReminder.setVisibility(View.GONE);
@@ -99,10 +98,17 @@ public class NoteAdapter extends RecyclerView.Adapter<NoteAdapter.NoteViewHolder
             holder.cardView.setAlpha(1.0f);
         }
 
-        // Show/Hide "pinned" badge
-        holder.textPinnedBadge.setVisibility(note.isPinned() ? View.VISIBLE : View.GONE);
+        // Category pill
+        String cat = note.getCategory();
+        if (cat == null || cat.isEmpty()) {
+            holder.textCategory.setVisibility(View.GONE);
+        } else {
+            holder.textCategory.setVisibility(View.VISIBLE);
+            holder.textCategory.setText(displayNameFor(cat));
+            tintCategoryPill(holder.textCategory, colorFor(cat));
+        }
 
-        // Delete button
+        // Delete
         holder.btnDelete.setOnClickListener(v -> {
             if (holder.getAdapterPosition() != RecyclerView.NO_POSITION) {
                 onNoteListener.onDeleteClick(holder.getAdapterPosition());
@@ -153,7 +159,8 @@ public class NoteAdapter extends RecyclerView.Adapter<NoteAdapter.NoteViewHolder
 
     static class NoteViewHolder extends RecyclerView.ViewHolder {
         CardView cardView;
-        TextView textTitle, textContent, textDate, textReminderTime, textPinnedBadge;
+        TextView textTitle, textContent, textDate, textReminderTime, textCategory;
+        TextView textPinnedBadge; // ← add this
         ImageView iconReminder;
         CheckBox checkboxComplete;
         ImageButton btnDelete;
@@ -161,19 +168,49 @@ public class NoteAdapter extends RecyclerView.Adapter<NoteAdapter.NoteViewHolder
         public NoteViewHolder(@NonNull View itemView, OnNoteListener onNoteListener) {
             super(itemView);
             cardView = itemView.findViewById(R.id.cardView);
-            textPinnedBadge = itemView.findViewById(R.id.textPinnedBadge);
             textTitle = itemView.findViewById(R.id.textTitle);
+            textCategory = itemView.findViewById(R.id.textCategory);
             textContent = itemView.findViewById(R.id.textContent);
             textDate = itemView.findViewById(R.id.textDate);
             textReminderTime = itemView.findViewById(R.id.textReminderTime);
             iconReminder = itemView.findViewById(R.id.iconReminder);
             checkboxComplete = itemView.findViewById(R.id.checkboxComplete);
             btnDelete = itemView.findViewById(R.id.btnDelete);
+            textPinnedBadge = itemView.findViewById(R.id.textPinnedBadge); // ← add this
         }
     }
 
     private boolean use24HourFormat() {
         SharedPreferences prefs = context.getSharedPreferences("NotesAppPrefs", Context.MODE_PRIVATE);
         return prefs.getBoolean("time_24h", true);
+    }
+
+    // Category helpers
+    private String displayNameFor(String key) {
+        switch (key) {
+            case "work":     return "Работа";
+            case "family":   return "Семья";
+            case "errand":   return "Поручение";
+            case "personal": return "Личное";
+            default:         return "Другое";
+        }
+    }
+
+    private int colorFor(String key) {
+        if ("work".equals(key))     return ContextCompat.getColor(context, R.color.category_work);
+        if ("personal".equals(key)) return ContextCompat.getColor(context, R.color.category_personal);
+        if ("family".equals(key))   return ContextCompat.getColor(context, R.color.category_family);
+        if ("errand".equals(key))   return ContextCompat.getColor(context, R.color.category_errand);
+        return ContextCompat.getColor(context, R.color.category_other);
+    }
+
+    private void tintCategoryPill(TextView tv, int color) {
+        Drawable bg = tv.getBackground();
+        if (bg instanceof GradientDrawable) {
+            ((GradientDrawable) bg.mutate()).setColor(color);
+        } else {
+            // fallback: set background tint if not our shape
+            tv.setBackgroundTintList(android.content.res.ColorStateList.valueOf(color));
+        }
     }
 }

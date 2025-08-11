@@ -10,10 +10,12 @@ import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.view.MenuItem;
 import android.view.View;
+import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.DatePicker;
 import android.widget.EditText;
 import android.widget.ImageButton;
+import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.TimePicker;
 import android.widget.Toast;
@@ -34,20 +36,23 @@ public class AddEditNoteActivity extends AppCompatActivity {
     private EditText editTitle, editContent;
     private Chip chipReminder;
     private TextView textReminderDateTime;
-    private TextView textRepeatDays;       // NEW: отдельная строка с днями
+    private TextView textRepeatDays;
     private ImageButton btnClearReminder;
+    private Spinner spinnerCategory; // NEW
     private Button btnSave;
-    private DatabaseHelper databaseHelper;
 
+    private DatabaseHelper databaseHelper;
     private int noteId = -1;
     private long reminderTime = 0;
     private Calendar reminderCalendar;
-
-    // Повтор: битовая маска (Пн=1<<0 .. Вс=1<<6)
     private int repeatDays = 0;
 
     private static final String PREFS_NAME = "NotesAppPrefs";
     private static final String KEY_TIME_24H = "time_24h";
+
+    // Categories: key -> display name (ru)
+    private static final String[] CAT_KEYS =    {"work","personal","family","errand","other"};
+    private static final String[] CAT_DISPLAY = {"Работа","Личное","Семья","Поручение","Другое"};
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -64,24 +69,32 @@ public class AddEditNoteActivity extends AppCompatActivity {
         editContent = findViewById(R.id.editContent);
         chipReminder = findViewById(R.id.chipReminder);
         textReminderDateTime = findViewById(R.id.textReminderDateTime);
-        textRepeatDays = findViewById(R.id.textRepeatDays); // NEW
+        textRepeatDays = findViewById(R.id.textRepeatDays);
         btnClearReminder = findViewById(R.id.btnClearReminder);
+        spinnerCategory = findViewById(R.id.spinnerCategory); // NEW
         btnSave = findViewById(R.id.btnSave);
 
         databaseHelper = new DatabaseHelper(this);
         reminderCalendar = Calendar.getInstance();
 
-        // Редактирование?
+        // Category spinner setup
+        ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, CAT_DISPLAY);
+        spinnerCategory.setAdapter(adapter);
+
+        // Edit mode?
         Intent intent = getIntent();
         if (intent.hasExtra("note_id")) {
             noteId = intent.getIntExtra("note_id", -1);
-            // Подтянуть полные данные, включая repeatDays
             Note existing = databaseHelper.getNote(noteId);
             if (existing != null) {
                 editTitle.setText(existing.getTitle());
                 editContent.setText(existing.getContent());
                 reminderTime = existing.getReminderTime();
                 repeatDays = existing.getRepeatDays();
+                // set category
+                int idx = indexOfKey(existing.getCategory());
+                spinnerCategory.setSelection(idx >= 0 ? idx : 1); // default "Личное"
+
                 if (reminderTime > 0) {
                     reminderCalendar.setTimeInMillis(reminderTime);
                     updateReminderDisplay();
@@ -89,12 +102,26 @@ public class AddEditNoteActivity extends AppCompatActivity {
             }
             if (getSupportActionBar() != null) getSupportActionBar().setTitle("Редактировать заметку");
         } else {
+            // default category "Личное"
+            spinnerCategory.setSelection(1);
             if (getSupportActionBar() != null) getSupportActionBar().setTitle("Новая заметка");
         }
 
         chipReminder.setOnClickListener(v -> showDateTimePicker());
         btnClearReminder.setOnClickListener(v -> clearReminder());
         btnSave.setOnClickListener(v -> saveNote());
+    }
+
+    private int indexOfKey(String key) {
+        if (key == null) return -1;
+        for (int i = 0; i < CAT_KEYS.length; i++) if (key.equals(CAT_KEYS[i])) return i;
+        return -1;
+    }
+
+    private String selectedCategoryKey() {
+        int pos = spinnerCategory.getSelectedItemPosition();
+        if (pos < 0 || pos >= CAT_KEYS.length) return "personal";
+        return CAT_KEYS[pos];
     }
 
     private void showDateTimePicker() {
@@ -128,8 +155,7 @@ public class AddEditNoteActivity extends AppCompatActivity {
                     }
 
                     reminderTime = reminderCalendar.getTimeInMillis();
-                    // после выбора времени предлагаем выбрать дни повторения
-                    showRepeatDaysDialog();
+                    showRepeatDaysDialog(); // ask for repeating days
                 },
                 reminderCalendar.get(Calendar.HOUR_OF_DAY),
                 reminderCalendar.get(Calendar.MINUTE),
@@ -138,7 +164,6 @@ public class AddEditNoteActivity extends AppCompatActivity {
         timePickerDialog.show();
     }
 
-    // Диалог с многовыбором дней недели
     private void showRepeatDaysDialog() {
         final String[] days = new String[]{"Пн","Вт","Ср","Чт","Пт","Сб","Вс"};
         final boolean[] checked = new boolean[7];
@@ -153,10 +178,7 @@ public class AddEditNoteActivity extends AppCompatActivity {
                     repeatDays = mask;
                     updateReminderDisplay();
                 })
-                .setNegativeButton("Отмена", (d, w) -> {
-                    // оставляем прошлые repeatDays, но обновим вывод времени
-                    updateReminderDisplay();
-                })
+                .setNegativeButton("Отмена", (d, w) -> updateReminderDisplay())
                 .show();
     }
 
@@ -171,7 +193,6 @@ public class AddEditNoteActivity extends AppCompatActivity {
             btnClearReminder.setVisibility(View.VISIBLE);
             chipReminder.setText("Изменить напоминание");
 
-            // NEW: отдельная строка с выбранными днями
             if (repeatDays != 0) {
                 textRepeatDays.setText("Повтор: " + repeatSummary(repeatDays));
                 textRepeatDays.setVisibility(View.VISIBLE);
@@ -185,7 +206,7 @@ public class AddEditNoteActivity extends AppCompatActivity {
         reminderTime = 0;
         repeatDays = 0;
         textReminderDateTime.setVisibility(View.GONE);
-        textRepeatDays.setVisibility(View.GONE); // NEW
+        textRepeatDays.setVisibility(View.GONE);
         btnClearReminder.setVisibility(View.GONE);
         chipReminder.setText("Добавить напоминание");
         Toast.makeText(this, "Напоминание удалено", Toast.LENGTH_SHORT).show();
@@ -203,6 +224,7 @@ public class AddEditNoteActivity extends AppCompatActivity {
         note.setContent(content);
         note.setCreatedAt(System.currentTimeMillis());
         note.setRepeatDays(repeatDays);
+        note.setCategory(selectedCategoryKey());
 
         if (reminderTime > 0) {
             if (repeatDays != 0) {
@@ -245,9 +267,7 @@ public class AddEditNoteActivity extends AppCompatActivity {
         intent.putExtra("note_content", note.getContent());
 
         PendingIntent pi = PendingIntent.getBroadcast(
-                this,
-                note.getId(),
-                intent,
+                this, note.getId(), intent,
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
         );
 
@@ -266,9 +286,7 @@ public class AddEditNoteActivity extends AppCompatActivity {
         AlarmManager am = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
         Intent intent = new Intent(this, NotificationReceiver.class);
         PendingIntent pi = PendingIntent.getBroadcast(
-                this,
-                noteId,
-                intent,
+                this, noteId, intent,
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
         );
         if (am != null) am.cancel(pi);
@@ -307,7 +325,7 @@ public class AddEditNoteActivity extends AppCompatActivity {
         int todayIdx = todayIndex(now);
         for (int offset = 0; offset < 7; offset++) {
             int idx = (todayIdx + offset) % 7;
-            if (!isBitSet(mask, idx)) continue;
+            if (((mask >> idx) & 1) != 1) continue;
 
             Calendar test = (Calendar) cand.clone();
             test.add(Calendar.DAY_OF_MONTH, offset);
@@ -315,7 +333,6 @@ public class AddEditNoteActivity extends AppCompatActivity {
                 return test.getTimeInMillis();
             }
         }
-        // fallback
         return now.getTimeInMillis() + 60_000;
     }
 

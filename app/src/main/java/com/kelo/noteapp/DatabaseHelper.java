@@ -16,8 +16,8 @@ import java.util.Set;
 
 public class DatabaseHelper extends SQLiteOpenHelper {
 
-    // Bump DB version to add repeat_days
-    private static final int DATABASE_VERSION = 3;
+    // ⬆ Bumped to v4: adds COLUMN_CATEGORY. All older features untouched.
+    private static final int DATABASE_VERSION = 4;
     private static final String DATABASE_NAME = "NotesDatabase.db";
 
     // Table & columns
@@ -30,8 +30,9 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     private static final String COLUMN_IS_COMPLETED = "is_completed";
     private static final String COLUMN_IS_PINNED = "is_pinned";
     private static final String COLUMN_REPEAT_DAYS = "repeat_days";
+    // NEW:
+    private static final String COLUMN_CATEGORY = "category";
 
-    // Create
     private static final String CREATE_TABLE_NOTES = "CREATE TABLE " + TABLE_NOTES + "("
             + COLUMN_ID + " INTEGER PRIMARY KEY AUTOINCREMENT,"
             + COLUMN_TITLE + " TEXT NOT NULL,"
@@ -40,7 +41,8 @@ public class DatabaseHelper extends SQLiteOpenHelper {
             + COLUMN_REMINDER_TIME + " INTEGER DEFAULT 0,"
             + COLUMN_IS_COMPLETED + " INTEGER DEFAULT 0,"
             + COLUMN_IS_PINNED + " INTEGER DEFAULT 0,"
-            + COLUMN_REPEAT_DAYS + " INTEGER DEFAULT 0"
+            + COLUMN_REPEAT_DAYS + " INTEGER DEFAULT 0,"
+            + COLUMN_CATEGORY + " TEXT DEFAULT 'personal'"
             + ")";
 
     public DatabaseHelper(Context context) {
@@ -53,17 +55,21 @@ public class DatabaseHelper extends SQLiteOpenHelper {
 
     @Override
     public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
-        // v2 added is_pinned
+        // v2: is_pinned
         if (oldVersion < 2) {
             db.execSQL("ALTER TABLE " + TABLE_NOTES + " ADD COLUMN " + COLUMN_IS_PINNED + " INTEGER DEFAULT 0");
         }
-        // v3 adds repeat_days
+        // v3: repeat_days
         if (oldVersion < 3) {
             db.execSQL("ALTER TABLE " + TABLE_NOTES + " ADD COLUMN " + COLUMN_REPEAT_DAYS + " INTEGER DEFAULT 0");
         }
+        // v4: category
+        if (oldVersion < 4) {
+            db.execSQL("ALTER TABLE " + TABLE_NOTES + " ADD COLUMN " + COLUMN_CATEGORY + " TEXT DEFAULT 'personal'");
+        }
     }
 
-    // Create
+    // --- CREATE ---
     long addNote(Note note) {
         SQLiteDatabase db = this.getWritableDatabase();
         ContentValues values = new ContentValues();
@@ -74,40 +80,32 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         values.put(COLUMN_IS_COMPLETED, note.isCompleted() ? 1 : 0);
         values.put(COLUMN_IS_PINNED, note.isPinned() ? 1 : 0);
         values.put(COLUMN_REPEAT_DAYS, note.getRepeatDays());
+        values.put(COLUMN_CATEGORY, note.getCategory() == null ? "personal" : note.getCategory());
         long id = db.insert(TABLE_NOTES, null, values);
         db.close();
         return id;
     }
 
-    // Read one
+    // --- READ ONE ---
     Note getNote(int id) {
         SQLiteDatabase db = this.getReadableDatabase();
         Cursor c = db.query(
                 TABLE_NOTES,
-                new String[]{COLUMN_ID, COLUMN_TITLE, COLUMN_CONTENT, COLUMN_CREATED_AT,
-                        COLUMN_REMINDER_TIME, COLUMN_IS_COMPLETED, COLUMN_IS_PINNED, COLUMN_REPEAT_DAYS},
+                null,
                 COLUMN_ID + "=?",
                 new String[]{String.valueOf(id)}, null, null, null
         );
 
         Note note = null;
         if (c != null && c.moveToFirst()) {
-            note = new Note();
-            note.setId(c.getInt(c.getColumnIndex(COLUMN_ID)));
-            note.setTitle(c.getString(c.getColumnIndex(COLUMN_TITLE)));
-            note.setContent(c.getString(c.getColumnIndex(COLUMN_CONTENT)));
-            note.setCreatedAt(c.getLong(c.getColumnIndex(COLUMN_CREATED_AT)));
-            note.setReminderTime(c.getLong(c.getColumnIndex(COLUMN_REMINDER_TIME)));
-            note.setCompleted(c.getInt(c.getColumnIndex(COLUMN_IS_COMPLETED)) == 1);
-            note.setPinned(c.getInt(c.getColumnIndex(COLUMN_IS_PINNED)) == 1);
-            note.setRepeatDays(c.getInt(c.getColumnIndex(COLUMN_REPEAT_DAYS)));
+            note = readNoteFromCursor(c);
         }
         if (c != null) c.close();
         db.close();
         return note;
     }
 
-    // Read all — pinned first, then not completed, then newest
+    // --- READ ALL (pinned first, active first, newest) ---
     List<Note> getAllNotes() {
         List<Note> list = new ArrayList<>();
         String sql = "SELECT * FROM " + TABLE_NOTES +
@@ -117,29 +115,34 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         SQLiteDatabase db = this.getReadableDatabase();
         Cursor c = db.rawQuery(sql, null);
         if (c.moveToFirst()) {
-            do {
-                Note n = new Note();
-                n.setId(c.getInt(c.getColumnIndex(COLUMN_ID)));
-                n.setTitle(c.getString(c.getColumnIndex(COLUMN_TITLE)));
-                n.setContent(c.getString(c.getColumnIndex(COLUMN_CONTENT)));
-                n.setCreatedAt(c.getLong(c.getColumnIndex(COLUMN_CREATED_AT)));
-                n.setReminderTime(c.getLong(c.getColumnIndex(COLUMN_REMINDER_TIME)));
-                n.setCompleted(c.getInt(c.getColumnIndex(COLUMN_IS_COMPLETED)) == 1);
-                n.setPinned(c.getInt(c.getColumnIndex(COLUMN_IS_PINNED)) == 1);
-                n.setRepeatDays(c.getInt(c.getColumnIndex(COLUMN_REPEAT_DAYS)));
-                list.add(n);
-            } while (c.moveToNext());
+            do { list.add(readNoteFromCursor(c)); } while (c.moveToNext());
         }
         c.close();
         db.close();
         return list;
     }
 
-    // Get notes with reminders for a specific date (ONLY FUTURE REMINDERS)
+    // --- FILTER BY CATEGORY (keeps your sort) ---
+    List<Note> getNotesByCategory(String categoryKey) {
+        List<Note> list = new ArrayList<>();
+        SQLiteDatabase db = this.getReadableDatabase();
+        Cursor c = db.query(TABLE_NOTES, null,
+                COLUMN_CATEGORY + "=?",
+                new String[]{categoryKey},
+                null, null,
+                COLUMN_IS_PINNED + " DESC, " + COLUMN_IS_COMPLETED + " ASC, " + COLUMN_CREATED_AT + " DESC");
+        if (c.moveToFirst()) {
+            do { list.add(readNoteFromCursor(c)); } while (c.moveToNext());
+        }
+        c.close();
+        db.close();
+        return list;
+    }
+
+    // --- CALENDAR HELPERS (unchanged) ---
     List<Note> getNotesForDate(int year, int month, int day) {
         List<Note> list = new ArrayList<>();
 
-        // Create calendar for the selected date
         Calendar dateCal = Calendar.getInstance();
         dateCal.set(year, month, day, 0, 0, 0);
         dateCal.set(Calendar.MILLISECOND, 0);
@@ -150,16 +153,9 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         endCal.set(Calendar.MILLISECOND, 999);
         long endTime = endCal.getTimeInMillis();
 
-        // Current time for filtering past reminders
         long currentTime = System.currentTimeMillis();
+        if (startTime < currentTime) startTime = currentTime;
 
-        // Only show if the selected date is today or in the future
-        if (startTime < currentTime) {
-            // If selected date is in the past, only show from current time
-            startTime = currentTime;
-        }
-
-        // Get all notes with reminders
         String sql = "SELECT * FROM " + TABLE_NOTES +
                 " WHERE " + COLUMN_REMINDER_TIME + " > 0 OR " + COLUMN_REPEAT_DAYS + " != 0" +
                 " ORDER BY " + COLUMN_IS_PINNED + " DESC, " +
@@ -171,26 +167,14 @@ public class DatabaseHelper extends SQLiteOpenHelper {
 
         if (c.moveToFirst()) {
             do {
-                Note n = new Note();
-                n.setId(c.getInt(c.getColumnIndex(COLUMN_ID)));
-                n.setTitle(c.getString(c.getColumnIndex(COLUMN_TITLE)));
-                n.setContent(c.getString(c.getColumnIndex(COLUMN_CONTENT)));
-                n.setCreatedAt(c.getLong(c.getColumnIndex(COLUMN_CREATED_AT)));
-                n.setReminderTime(c.getLong(c.getColumnIndex(COLUMN_REMINDER_TIME)));
-                n.setCompleted(c.getInt(c.getColumnIndex(COLUMN_IS_COMPLETED)) == 1);
-                n.setPinned(c.getInt(c.getColumnIndex(COLUMN_IS_PINNED)) == 1);
-                n.setRepeatDays(c.getInt(c.getColumnIndex(COLUMN_REPEAT_DAYS)));
+                Note n = readNoteFromCursor(c);
 
-                // Check if it has a one-time reminder on this date (and it's in the future)
                 if (n.getReminderTime() >= startTime && n.getReminderTime() <= endTime) {
                     list.add(n);
-                }
-                // Or if it's a recurring reminder for this day (and the date is not in the past)
-                else if (n.getRepeatDays() != 0 && startTime >= currentTime) {
+                } else if (n.getRepeatDays() != 0 && startTime >= currentTime) {
                     int dayOfWeek = dateCal.get(Calendar.DAY_OF_WEEK);
                     int bitIndex = convertDayOfWeekToBitIndex(dayOfWeek);
                     if (((n.getRepeatDays() >> bitIndex) & 1) == 1) {
-                        // This recurring reminder applies to this day
                         list.add(n);
                     }
                 }
@@ -201,7 +185,6 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         return list;
     }
 
-    // Get FUTURE reminders count for each day in a month (max 7 days ahead)
     Map<String, Integer> getNotesCountForMonth(int year, int month) {
         Map<String, Integer> countMap = new HashMap<>();
 
@@ -212,14 +195,10 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         today.set(Calendar.MILLISECOND, 0);
         long todayStart = today.getTimeInMillis();
 
-        // Only process days from today onwards
         Calendar cal = Calendar.getInstance();
         cal.set(year, month, 1, 0, 0, 0);
         cal.set(Calendar.MILLISECOND, 0);
 
-        int daysInMonth = cal.getActualMaximum(Calendar.DAY_OF_MONTH);
-
-        // Get all notes with reminders
         SQLiteDatabase db = this.getReadableDatabase();
         Cursor c = db.rawQuery("SELECT * FROM " + TABLE_NOTES +
                 " WHERE " + COLUMN_REMINDER_TIME + " > 0 AND " +
@@ -228,8 +207,6 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         if (c.moveToFirst()) {
             do {
                 long reminderTime = c.getLong(c.getColumnIndex(COLUMN_REMINDER_TIME));
-
-                // Only count future one-time reminders
                 if (reminderTime >= todayStart) {
                     Calendar reminderCal = Calendar.getInstance();
                     reminderCal.setTimeInMillis(reminderTime);
@@ -249,18 +226,15 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         return countMap;
     }
 
-    // Get recurring reminder dates for NEXT 7 DAYS ONLY
     Set<String> getRecurringDatesForMonth(int year, int month) {
         Set<String> recurringDates = new HashSet<>();
 
-        // Get today's date
         Calendar today = Calendar.getInstance();
         today.set(Calendar.HOUR_OF_DAY, 0);
         today.set(Calendar.MINUTE, 0);
         today.set(Calendar.SECOND, 0);
         today.set(Calendar.MILLISECOND, 0);
 
-        // Calculate 7 days from today
         Calendar weekAhead = (Calendar) today.clone();
         weekAhead.add(Calendar.DAY_OF_MONTH, 7);
 
@@ -273,10 +247,8 @@ public class DatabaseHelper extends SQLiteOpenHelper {
             do {
                 int repeatDays = c.getInt(c.getColumnIndex(COLUMN_REPEAT_DAYS));
 
-                // Check each day for the next 7 days
                 Calendar checkDate = (Calendar) today.clone();
                 for (int i = 0; i < 7; i++) {
-                    // Only add if it's in the requested month/year
                     if (checkDate.get(Calendar.YEAR) == year &&
                             checkDate.get(Calendar.MONTH) == month) {
 
@@ -301,9 +273,6 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         return recurringDates;
     }
 
-    // Convert Calendar.DAY_OF_WEEK to our bit index
-    // Our system: Mon=0, Tue=1, Wed=2, Thu=3, Fri=4, Sat=5, Sun=6
-    // Calendar: Sun=1, Mon=2, Tue=3, Wed=4, Thu=5, Fri=6, Sat=7
     private int convertDayOfWeekToBitIndex(int calendarDayOfWeek) {
         switch (calendarDayOfWeek) {
             case Calendar.MONDAY: return 0;
@@ -317,7 +286,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         }
     }
 
-    // Active notes
+    // Active notes (unchanged)
     List<Note> getActiveNotes() {
         List<Note> list = new ArrayList<>();
         String sql = "SELECT * FROM " + TABLE_NOTES +
@@ -326,25 +295,14 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         SQLiteDatabase db = this.getReadableDatabase();
         Cursor c = db.rawQuery(sql, null);
         if (c.moveToFirst()) {
-            do {
-                Note n = new Note();
-                n.setId(c.getInt(c.getColumnIndex(COLUMN_ID)));
-                n.setTitle(c.getString(c.getColumnIndex(COLUMN_TITLE)));
-                n.setContent(c.getString(c.getColumnIndex(COLUMN_CONTENT)));
-                n.setCreatedAt(c.getLong(c.getColumnIndex(COLUMN_CREATED_AT)));
-                n.setReminderTime(c.getLong(c.getColumnIndex(COLUMN_REMINDER_TIME)));
-                n.setCompleted(c.getInt(c.getColumnIndex(COLUMN_IS_COMPLETED)) == 1);
-                n.setPinned(c.getInt(c.getColumnIndex(COLUMN_IS_PINNED)) == 1);
-                n.setRepeatDays(c.getInt(c.getColumnIndex(COLUMN_REPEAT_DAYS)));
-                list.add(n);
-            } while (c.moveToNext());
+            do { list.add(readNoteFromCursor(c)); } while (c.moveToNext());
         }
         c.close();
         db.close();
         return list;
     }
 
-    // Update
+    // --- UPDATE ---
     int updateNote(Note note) {
         SQLiteDatabase db = this.getWritableDatabase();
         ContentValues values = new ContentValues();
@@ -354,19 +312,20 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         values.put(COLUMN_IS_COMPLETED, note.isCompleted() ? 1 : 0);
         values.put(COLUMN_IS_PINNED, note.isPinned() ? 1 : 0);
         values.put(COLUMN_REPEAT_DAYS, note.getRepeatDays());
+        values.put(COLUMN_CATEGORY, note.getCategory() == null ? "personal" : note.getCategory());
         int rows = db.update(TABLE_NOTES, values, COLUMN_ID + " = ?", new String[]{String.valueOf(note.getId())});
         db.close();
         return rows;
     }
 
-    // Delete
+    // --- DELETE ---
     void deleteNote(int id) {
         SQLiteDatabase db = this.getWritableDatabase();
         db.delete(TABLE_NOTES, COLUMN_ID + " = ?", new String[]{String.valueOf(id)});
         db.close();
     }
 
-    // Extra utils already used in Settings
+    // --- UTILITIES ---
     void deleteAllNotes() {
         SQLiteDatabase db = this.getWritableDatabase();
         db.delete(TABLE_NOTES, null, null);
@@ -383,5 +342,22 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         }
         db.close();
         return count;
+    }
+
+    // ---- internal helper ----
+    private Note readNoteFromCursor(Cursor c) {
+        Note n = new Note();
+        n.setId(c.getInt(c.getColumnIndex(COLUMN_ID)));
+        n.setTitle(c.getString(c.getColumnIndex(COLUMN_TITLE)));
+        n.setContent(c.getString(c.getColumnIndex(COLUMN_CONTENT)));
+        n.setCreatedAt(c.getLong(c.getColumnIndex(COLUMN_CREATED_AT)));
+        n.setReminderTime(c.getLong(c.getColumnIndex(COLUMN_REMINDER_TIME)));
+        n.setCompleted(c.getInt(c.getColumnIndex(COLUMN_IS_COMPLETED)) == 1);
+        n.setPinned(c.getInt(c.getColumnIndex(COLUMN_IS_PINNED)) == 1);
+        n.setRepeatDays(c.getInt(c.getColumnIndex(COLUMN_REPEAT_DAYS)));
+        // NEW:
+        int idxCat = c.getColumnIndex(COLUMN_CATEGORY);
+        n.setCategory(idxCat >= 0 ? c.getString(idxCat) : "personal");
+        return n;
     }
 }

@@ -144,7 +144,29 @@
                     android:textSize="14sp"
                     android:visibility="gone"
                     tools:visibility="visible" />
+
+                <!-- Category row -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Категория"
+                        android:textColor="@color/text_primary"
+                        android:textSize="16sp"/>
+
+                    <Spinner
+                        android:id="@+id/spinnerCategory"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="6dp"/>
+                </LinearLayout>
             </LinearLayout>
+
 
         </LinearLayout>
 
