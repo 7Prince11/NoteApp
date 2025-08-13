@@ -13,6 +13,7 @@ import android.widget.CheckBox;
 import android.widget.CompoundButton;
 import android.widget.ImageButton;
 import android.widget.ImageView;
+import android.widget.LinearLayout;
 import android.widget.PopupMenu;
 import android.widget.TextView;
 
@@ -22,6 +23,7 @@ import androidx.core.content.ContextCompat;
 import androidx.recyclerview.widget.RecyclerView;
 
 import java.text.SimpleDateFormat;
+import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
@@ -50,7 +52,6 @@ public class NoteAdapter extends RecyclerView.Adapter<NoteAdapter.NoteViewHolder
     public NoteViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
         View view = LayoutInflater.from(context).inflate(R.layout.item_note, parent, false);
         return new NoteViewHolder(view, onNoteListener);
-
     }
 
     @Override
@@ -60,29 +61,71 @@ public class NoteAdapter extends RecyclerView.Adapter<NoteAdapter.NoteViewHolder
         // Title & content
         holder.textTitle.setText(note.getTitle());
         holder.textContent.setText(note.getContent());
-        holder.textPinnedBadge.setVisibility(note.isPinned() ? View.VISIBLE : View.GONE);
+
         // Created date
         SimpleDateFormat sdf = new SimpleDateFormat("dd MMM yyyy", new Locale("ru"));
-        holder.textDate.setText(sdf.format(new Date(note.getCreatedAt())));
+        String dateText = sdf.format(new Date(note.getCreatedAt()));
+        holder.textDate.setText(dateText);
+        holder.textDate.setVisibility(View.VISIBLE);
+
+        // Category stripe design
+        String cat = note.getCategory();
+        if (cat != null && !cat.isEmpty()) {
+            // Show category stripe at top
+            holder.categoryStripe.setVisibility(View.VISIBLE);
+            holder.textCategory.setText(displayNameFor(cat));
+            holder.categoryStripe.setBackgroundColor(colorFor(cat));
+
+            // Handle pinned badge in stripe
+            if (note.isPinned()) {
+                holder.textPinnedBadge.setVisibility(View.VISIBLE);
+                holder.textPinnedBadgeAlt.setVisibility(View.GONE);
+            } else {
+                holder.textPinnedBadge.setVisibility(View.GONE);
+                holder.textPinnedBadgeAlt.setVisibility(View.GONE);
+            }
+        } else {
+            // No category - hide stripe, show normal pinned badge if needed
+            holder.categoryStripe.setVisibility(View.GONE);
+            holder.textPinnedBadge.setVisibility(View.GONE);
+            holder.textPinnedBadgeAlt.setVisibility(note.isPinned() ? View.VISIBLE : View.GONE);
+        }
 
         // Reminder UI
-        if (note.hasReminder()) {
-            holder.iconReminder.setVisibility(View.VISIBLE);
-            holder.textReminderTime.setVisibility(View.VISIBLE);
+        if (note.hasReminder() && note.getReminderTime() > 0) {
+            holder.reminderContainer.setVisibility(View.VISIBLE);
+
             if (note.isReminderExpired()) {
                 holder.textReminderTime.setText("Просрочено");
                 holder.textReminderTime.setTextColor(ContextCompat.getColor(context, android.R.color.holo_red_dark));
             } else {
-                SimpleDateFormat rtf = new SimpleDateFormat(
-                        use24HourFormat() ? "dd MMM HH:mm" : "dd MMM hh:mm a",
-                        new Locale("ru")
-                );
-                holder.textReminderTime.setText(rtf.format(new Date(note.getReminderTime())));
-                holder.textReminderTime.setTextColor(ContextCompat.getColor(context, android.R.color.holo_blue_dark));
+                Calendar reminderCal = Calendar.getInstance();
+                reminderCal.setTimeInMillis(note.getReminderTime());
+
+                Calendar today = Calendar.getInstance();
+                boolean isToday = reminderCal.get(Calendar.YEAR) == today.get(Calendar.YEAR) &&
+                        reminderCal.get(Calendar.DAY_OF_YEAR) == today.get(Calendar.DAY_OF_YEAR);
+
+                String reminderText;
+                if (isToday) {
+                    SimpleDateFormat timeFormat = new SimpleDateFormat(
+                            use24HourFormat() ? "HH:mm" : "h:mma",
+                            new Locale("ru")
+                    );
+                    reminderText = timeFormat.format(new Date(note.getReminderTime()));
+                } else {
+                    SimpleDateFormat compactFormat = new SimpleDateFormat(
+                            use24HourFormat() ? "d MMM HH:mm" : "d MMM h:mma",
+                            new Locale("ru")
+                    );
+                    reminderText = compactFormat.format(new Date(note.getReminderTime()));
+                }
+
+                holder.textReminderTime.setText(reminderText);
+                holder.textReminderTime.setTextColor(ContextCompat.getColor(context, R.color.colorAccent));
             }
         } else {
-            holder.iconReminder.setVisibility(View.GONE);
-            holder.textReminderTime.setVisibility(View.GONE);
+            holder.reminderContainer.setVisibility(View.GONE);
         }
 
         // Completed styling
@@ -96,16 +139,6 @@ public class NoteAdapter extends RecyclerView.Adapter<NoteAdapter.NoteViewHolder
             holder.textTitle.setPaintFlags(holder.textTitle.getPaintFlags() & (~Paint.STRIKE_THRU_TEXT_FLAG));
             holder.textContent.setPaintFlags(holder.textContent.getPaintFlags() & (~Paint.STRIKE_THRU_TEXT_FLAG));
             holder.cardView.setAlpha(1.0f);
-        }
-
-        // Category pill
-        String cat = note.getCategory();
-        if (cat == null || cat.isEmpty()) {
-            holder.textCategory.setVisibility(View.GONE);
-        } else {
-            holder.textCategory.setVisibility(View.VISIBLE);
-            holder.textCategory.setText(displayNameFor(cat));
-            tintCategoryPill(holder.textCategory, colorFor(cat));
         }
 
         // Delete
@@ -160,10 +193,11 @@ public class NoteAdapter extends RecyclerView.Adapter<NoteAdapter.NoteViewHolder
     static class NoteViewHolder extends RecyclerView.ViewHolder {
         CardView cardView;
         TextView textTitle, textContent, textDate, textReminderTime, textCategory;
-        TextView textPinnedBadge; // ← add this
+        TextView textPinnedBadge, textPinnedBadgeAlt;
         ImageView iconReminder;
         CheckBox checkboxComplete;
         ImageButton btnDelete;
+        LinearLayout reminderContainer, categoryStripe;
 
         public NoteViewHolder(@NonNull View itemView, OnNoteListener onNoteListener) {
             super(itemView);
@@ -176,7 +210,10 @@ public class NoteAdapter extends RecyclerView.Adapter<NoteAdapter.NoteViewHolder
             iconReminder = itemView.findViewById(R.id.iconReminder);
             checkboxComplete = itemView.findViewById(R.id.checkboxComplete);
             btnDelete = itemView.findViewById(R.id.btnDelete);
-            textPinnedBadge = itemView.findViewById(R.id.textPinnedBadge); // ← add this
+            textPinnedBadge = itemView.findViewById(R.id.textPinnedBadge);
+            textPinnedBadgeAlt = itemView.findViewById(R.id.textPinnedBadgeAlt);
+            reminderContainer = itemView.findViewById(R.id.reminderContainer);
+            categoryStripe = itemView.findViewById(R.id.categoryStripe);
         }
     }
 
@@ -202,15 +239,5 @@ public class NoteAdapter extends RecyclerView.Adapter<NoteAdapter.NoteViewHolder
         if ("family".equals(key))   return ContextCompat.getColor(context, R.color.category_family);
         if ("errand".equals(key))   return ContextCompat.getColor(context, R.color.category_errand);
         return ContextCompat.getColor(context, R.color.category_other);
-    }
-
-    private void tintCategoryPill(TextView tv, int color) {
-        Drawable bg = tv.getBackground();
-        if (bg instanceof GradientDrawable) {
-            ((GradientDrawable) bg.mutate()).setColor(color);
-        } else {
-            // fallback: set background tint if not our shape
-            tv.setBackgroundTintList(android.content.res.ColorStateList.valueOf(color));
-        }
     }
 }

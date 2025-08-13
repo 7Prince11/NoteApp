@@ -11,7 +11,8 @@
     <com.google.android.material.appbar.AppBarLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:theme="@style/Theme.NotesApp.AppBarOverlay">
+        android:theme="@style/Theme.NotesApp.AppBarOverlay"
+        android:elevation="4dp">
 
         <androidx.appcompat.widget.Toolbar
             android:id="@+id/toolbar"
@@ -27,163 +28,388 @@
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
-        android:fillViewport="true">
+        android:fillViewport="true"
+        android:scrollbars="none">
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:padding="16dp">
+            android:padding="20dp">
 
-            <!-- Поле для заголовка -->
-            <com.google.android.material.textfield.TextInputLayout
+            <!-- Main Content Card -->
+            <androidx.cardview.widget.CardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="16dp"
-                style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
-                app:boxStrokeColor="@color/colorPrimary"
-                app:hintTextColor="@color/colorPrimary">
-
-                <com.google.android.material.textfield.TextInputEditText
-                    android:id="@+id/editTitle"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:textColorHighlight="@color/warning_color"
-                    android:hint="Заголовок"
-                    android:inputType="textCapSentences"
-                    android:maxLines="2"
-                    android:textSize="18sp"
-                    android:textStyle="bold" />
-
-            </com.google.android.material.textfield.TextInputLayout>
-
-            <!-- Поле для содержания -->
-            <com.google.android.material.textfield.TextInputLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginBottom="16dp"
-                style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
-                app:boxStrokeColor="@color/colorPrimary"
-                app:hintTextColor="@color/colorPrimary">
-
-                <com.google.android.material.textfield.TextInputEditText
-                    android:id="@+id/editContent"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-
-                    android:textColorHint="@color/text_primary"
-                    android:hint="Содержание заметки"
-                    android:inputType="textMultiLine|textCapSentences"
-                    android:minLines="5"
-                    android:gravity="top"
-                    android:textSize="16sp" />
-
-            </com.google.android.material.textfield.TextInputLayout>
-
-            <!-- Секция напоминания -->
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:layout_marginBottom="16dp">
-
-                <com.google.android.material.chip.Chip
-                    android:id="@+id/chipReminder"
-                    style="@style/Widget.MaterialComponents.Chip.Action"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Добавить напоминание"
-                    android:textColor="@color/divider_color"
-
-                    app:chipIcon="@drawable/ic_alarm"
-                    app:chipStrokeColor="@color/colorPrimary"
-                    app:chipStrokeWidth="1dp" />
-                <!-- Selected date/time -->
-
-
-                <!-- NEW: repeat days line -->
-
+                android:layout_marginBottom="20dp"
+                app:cardCornerRadius="20dp"
+                app:cardElevation="0dp"
+                app:cardBackgroundColor="@color/card_background">
 
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:layout_marginTop="8dp"
-                    android:gravity="center_vertical">
+                    android:orientation="vertical"
+                    android:padding="24dp">
 
-                    <TextView
-                        android:id="@+id/textReminderDateTime"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:textSize="14sp"
-                        android:textColor="@color/colorPrimary"
-                        android:visibility="gone"
-                        tools:text="Напоминание: 25 дек 2024, 14:30"
-                        tools:visibility="visible" />
-
-                    <ImageButton
-                        android:id="@+id/btnClearReminder"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:src="@drawable/ic_clear"
-                        android:background="?attr/selectableItemBackgroundBorderless"
-                        android:padding="8dp"
-                        android:visibility="gone"
-                        android:contentDescription="Удалить напоминание"
-                        tools:visibility="visible" />
-
-                </LinearLayout>
-                <TextView
-                    android:id="@+id/textRepeatDays"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="4dp"
-                    android:text="Повтор: Пн, Ср, Пт"
-                    android:textColor="@color/text_secondary"
-                    android:textSize="14sp"
-                    android:visibility="gone"
-                    tools:visibility="visible" />
-
-                <!-- Category row -->
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="16dp"
-                    android:orientation="vertical">
-
+                    <!-- Title Section with Clean Styling -->
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Категория"
+                        android:text="Заголовок"
                         android:textColor="@color/text_primary"
-                        android:textSize="16sp"/>
+                        android:textSize="14sp"
+                        android:textStyle="bold"
+                        android:layout_marginBottom="8dp" />
 
-                    <Spinner
-                        android:id="@+id/spinnerCategory"
+                    <com.google.android.material.textfield.TextInputLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="6dp"/>
-                </LinearLayout>
-            </LinearLayout>
+                        android:layout_marginBottom="24dp"
+                        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+                        app:boxStrokeColor="@color/colorPrimary"
+                        app:hintTextColor="@color/colorPrimary"
+                        app:boxStrokeWidth="2dp"
+                        app:boxCornerRadiusTopStart="12dp"
+                        app:boxCornerRadiusTopEnd="12dp"
+                        app:boxCornerRadiusBottomStart="12dp"
+                        app:boxCornerRadiusBottomEnd="12dp">
 
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/editTitle"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:textColorHighlight="@color/warning_color"
+                            android:textColorHint="@color/text_primary"
+                            android:hint="Введите заголовок заметки"
+                            android:inputType="textCapSentences"
+                            android:maxLines="2"
+                            android:textSize="18sp"
+                            android:textStyle="bold"
+                            android:textColor="@color/text_primary"
+                            android:padding="16dp"
+                            android:background="@android:color/transparent" />
+
+                    </com.google.android.material.textfield.TextInputLayout>
+
+
+                    <!-- Content Section with Clean Styling -->
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Содержание"
+                        android:textColor="@color/text_primary"
+                        android:textSize="14sp"
+                        android:textStyle="bold"
+                        android:layout_marginBottom="8dp" />
+
+                    <com.google.android.material.textfield.TextInputLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+                        app:boxStrokeColor="@color/colorPrimary"
+                        app:hintTextColor="@color/colorPrimary"
+                        app:boxStrokeWidth="2dp"
+                        app:boxCornerRadiusTopStart="12dp"
+                        app:boxCornerRadiusTopEnd="12dp"
+                        app:boxCornerRadiusBottomStart="12dp"
+                        app:boxCornerRadiusBottomEnd="12dp">
+
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/editContent"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:textColorHint="@color/colorPrimary"
+                            android:hint="Введите содержание заметки"
+                            android:inputType="textMultiLine|textCapSentences"
+                            android:minLines="6"
+                            android:gravity="top"
+                            android:textSize="16sp"
+                            android:textColor="@color/text_primary"
+                            android:lineSpacingExtra="2dp"
+                            android:padding="16dp"
+                            android:background="@android:color/transparent" />
+
+                    </com.google.android.material.textfield.TextInputLayout>
+
+                </LinearLayout>
+
+            </androidx.cardview.widget.CardView>
+
+            <!-- Reminder & Settings Card -->
+            <androidx.cardview.widget.CardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="20dp"
+                app:cardCornerRadius="20dp"
+                app:cardElevation="0dp"
+                app:cardBackgroundColor="@color/card_background">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="24dp">
+
+                    <!-- Reminder Section Header -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical"
+                        android:layout_marginBottom="16dp">
+
+                        <ImageView
+                            android:layout_width="20dp"
+                            android:layout_height="20dp"
+                            android:src="@drawable/ic_alarm"
+                            android:tint="@color/colorPrimary"
+                            android:layout_marginEnd="8dp" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Напоминание"
+                            android:textColor="@color/text_primary"
+                            android:textSize="16sp"
+                            android:textStyle="bold" />
+
+                    </LinearLayout>
+
+                    <!-- Reminder Chip -->
+                    <com.google.android.material.chip.Chip
+                        android:id="@+id/chipReminder"
+                        style="@style/Widget.MaterialComponents.Chip.Action"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginBottom="12dp"
+                        android:text="Добавить напоминание"
+                        android:textColor="@color/colorPrimary"
+                        android:textSize="14sp"
+                        app:chipIcon="@drawable/ic_alarm"
+                        app:chipIconTint="@color/colorPrimary"
+                        app:chipIconSize="22dp"
+                        app:chipStrokeColor="@color/colorPrimary"
+                        app:chipStrokeWidth="1dp"
+                        app:chipBackgroundColor="@color/chip_background"
+                        app:chipCornerRadius="15dp" />
+
+                    <!-- Reminder Details Container - Only shows when reminder is set -->
+                    <LinearLayout
+                        android:id="@+id/reminderDetailsContainer"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:background="@drawable/reminder_highlight_background"
+                        android:padding="16dp"
+                        android:layout_marginBottom="12dp"
+                        android:visibility="gone">
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal"
+                            android:gravity="center_vertical">
+
+                            <TextView
+                                android:id="@+id/textReminderDateTime"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:textSize="14sp"
+                                android:textColor="@color/colorAccent"
+                                android:textStyle="bold" />
+
+                            <ImageButton
+                                android:id="@+id/btnClearReminder"
+                                android:layout_width="32dp"
+                                android:layout_height="32dp"
+                                android:src="@drawable/ic_clear"
+                                android:background="?attr/selectableItemBackgroundBorderless"
+                                android:padding="6dp"
+                                android:tint="@color/colorAccent"
+                                android:contentDescription="Удалить напоминание" />
+
+                        </LinearLayout>
+
+                        <TextView
+                            android:id="@+id/textRepeatDays"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="8dp"
+                            android:textColor="@color/colorAccent"
+                            android:textSize="13sp"
+                            android:textStyle="bold"
+                            android:visibility="gone" />
+
+                    </LinearLayout>
+
+                    <!-- Divider -->
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="1dp"
+                        android:layout_marginVertical="16dp"
+                        android:background="@color/divider_color"
+                        android:alpha="0.3" />
+
+                    <!-- Category Section -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical"
+                        android:layout_marginBottom="12dp">
+
+                        <ImageView
+                            android:layout_width="20dp"
+                            android:layout_height="20dp"
+                            android:src="@drawable/ic_more_vert"
+                            android:tint="@color/colorPrimary"
+                            android:layout_marginEnd="8dp" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Категория"
+                            android:textColor="@color/text_primary"
+                            android:textSize="14sp"
+                            android:textStyle="bold" />
+
+                    </LinearLayout>
+
+                    <!-- Category Chips Container -->
+                    <com.google.android.material.chip.ChipGroup
+                        android:id="@+id/chipGroupCategory"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        app:singleSelection="true"
+                        app:chipSpacingHorizontal="8dp"
+                        app:chipSpacingVertical="4dp">
+
+                        <com.google.android.material.chip.Chip
+                            android:id="@+id/chipPersonal"
+                            style="@style/Widget.MaterialComponents.Chip.Choice"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Личное"
+                            android:textColor="@color/category_personal"
+                            android:textSize="13sp"
+                            android:textStyle="bold"
+                            android:checked="true"
+                            app:chipBackgroundColor="@android:color/transparent"
+                            app:chipStrokeColor="@color/category_personal"
+                            app:chipStrokeWidth="3dp"
+                            app:chipCornerRadius="18dp"
+                            app:checkedIconVisible="true"
+                            app:checkedIcon="@drawable/ic_check"
+                            app:checkedIconTint="@color/category_personal" />
+
+                        <com.google.android.material.chip.Chip
+                            android:id="@+id/chipWork"
+                            style="@style/Widget.MaterialComponents.Chip.Choice"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Работа"
+                            android:textColor="@color/category_work"
+                            android:textSize="13sp"
+                            android:textStyle="bold"
+                            app:chipBackgroundColor="@android:color/transparent"
+                            app:chipStrokeColor="@color/category_work"
+                            app:chipStrokeWidth="2dp"
+                            app:chipCornerRadius="18dp"
+                            app:checkedIconVisible="true"
+                            app:checkedIcon="@drawable/ic_check"
+                            app:checkedIconTint="@color/category_work" />
+
+                        <com.google.android.material.chip.Chip
+                            android:id="@+id/chipFamily"
+                            style="@style/Widget.MaterialComponents.Chip.Choice"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Семья"
+                            android:textColor="@color/category_family"
+                            android:textSize="13sp"
+                            android:textStyle="bold"
+                            app:chipBackgroundColor="@android:color/transparent"
+                            app:chipStrokeColor="@color/category_family"
+                            app:chipStrokeWidth="2dp"
+                            app:chipCornerRadius="18dp"
+                            app:checkedIconVisible="true"
+                            app:checkedIcon="@drawable/ic_check"
+                            app:checkedIconTint="@color/category_family" />
+
+                        <com.google.android.material.chip.Chip
+                            android:id="@+id/chipErrand"
+                            style="@style/Widget.MaterialComponents.Chip.Choice"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Поручение"
+                            android:textColor="@color/category_errand"
+                            android:textSize="13sp"
+                            android:textStyle="bold"
+                            app:chipBackgroundColor="@android:color/transparent"
+                            app:chipStrokeColor="@color/category_errand"
+                            app:chipStrokeWidth="2dp"
+                            app:chipCornerRadius="18dp"
+                            app:checkedIconVisible="true"
+                            app:checkedIcon="@drawable/ic_check"
+                            app:checkedIconTint="@color/category_errand" />
+
+                        <com.google.android.material.chip.Chip
+                            android:id="@+id/chipOther"
+                            style="@style/Widget.MaterialComponents.Chip.Choice"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Другое"
+                            android:textColor="@color/category_other"
+                            android:textSize="13sp"
+                            android:textStyle="bold"
+                            app:chipBackgroundColor="@android:color/transparent"
+                            app:chipStrokeColor="@color/category_other"
+                            app:chipStrokeWidth="2dp"
+                            app:chipCornerRadius="18dp"
+                            app:checkedIconVisible="true"
+                            app:checkedIcon="@drawable/ic_check"
+                            app:checkedIconTint="@color/category_other" />
+
+                    </com.google.android.material.chip.ChipGroup>
+
+                    <!-- Hidden Spinner for compatibility -->
+                    <Spinner
+                        android:id="@+id/spinnerCategory"
+                        android:layout_width="0dp"
+                        android:layout_height="0dp"
+                        android:visibility="gone" />
+
+                </LinearLayout>
+
+            </androidx.cardview.widget.CardView>
+
+            <!-- Bottom spacing for FAB -->
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="80dp" />
 
         </LinearLayout>
 
     </ScrollView>
 
-    <!-- Кнопка сохранения -->
-    <Button
+    <!-- Floating Save Button -->
+    <com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton
         android:id="@+id/btnSave"
-        android:layout_width="match_parent"
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_margin="16dp"
+        android:layout_gravity="bottom|end"
+        android:layout_margin="20dp"
         android:text="Сохранить"
-        android:textAllCaps="false"
-        android:textSize="16sp"
-        android:padding="12dp"
-        android:backgroundTint="@color/colorPrimary"
         android:textColor="@android:color/white"
-        app:cornerRadius="8dp" />
+        android:textSize="16sp"
+        android:textStyle="bold"
+        app:icon="@drawable/ic_check"
+        app:iconTint="@android:color/white"
+        app:backgroundTint="@color/colorPrimary"
+        app:elevation="6dp"
+        app:pressedTranslationZ="12dp"
+        app:cornerRadius="28dp" />
 
 </LinearLayout>

@@ -25,6 +25,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
 
 import com.google.android.material.chip.Chip;
+import com.google.android.material.chip.ChipGroup;
 
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
@@ -38,8 +39,13 @@ public class AddEditNoteActivity extends AppCompatActivity {
     private TextView textReminderDateTime;
     private TextView textRepeatDays;
     private ImageButton btnClearReminder;
-    private Spinner spinnerCategory; // NEW
-    private Button btnSave;
+    private Spinner spinnerCategory; // Kept for compatibility
+
+    // NEW: ChipGroup and individual chips for categories
+    private ChipGroup chipGroupCategory;
+    private Chip chipPersonal, chipWork, chipFamily, chipErrand, chipOther;
+
+    private com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton btnSave;
 
     private DatabaseHelper databaseHelper;
     private int noteId = -1;
@@ -71,13 +77,22 @@ public class AddEditNoteActivity extends AppCompatActivity {
         textReminderDateTime = findViewById(R.id.textReminderDateTime);
         textRepeatDays = findViewById(R.id.textRepeatDays);
         btnClearReminder = findViewById(R.id.btnClearReminder);
-        spinnerCategory = findViewById(R.id.spinnerCategory); // NEW
+        spinnerCategory = findViewById(R.id.spinnerCategory); // Kept for compatibility
+
+        // NEW: Initialize ChipGroup and individual chips
+        chipGroupCategory = findViewById(R.id.chipGroupCategory);
+        chipPersonal = findViewById(R.id.chipPersonal);
+        chipWork = findViewById(R.id.chipWork);
+        chipFamily = findViewById(R.id.chipFamily);
+        chipErrand = findViewById(R.id.chipErrand);
+        chipOther = findViewById(R.id.chipOther);
+
         btnSave = findViewById(R.id.btnSave);
 
         databaseHelper = new DatabaseHelper(this);
         reminderCalendar = Calendar.getInstance();
 
-        // Category spinner setup
+        // Category spinner setup (kept for compatibility)
         ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, CAT_DISPLAY);
         spinnerCategory.setAdapter(adapter);
 
@@ -91,9 +106,12 @@ public class AddEditNoteActivity extends AppCompatActivity {
                 editContent.setText(existing.getContent());
                 reminderTime = existing.getReminderTime();
                 repeatDays = existing.getRepeatDays();
-                // set category
+
+                // Set category using both methods for compatibility
                 int idx = indexOfKey(existing.getCategory());
                 spinnerCategory.setSelection(idx >= 0 ? idx : 1); // default "Личное"
+                // NEW: Also set the chip selection
+                setCategoryChip(existing.getCategory());
 
                 if (reminderTime > 0) {
                     reminderCalendar.setTimeInMillis(reminderTime);
@@ -104,12 +122,57 @@ public class AddEditNoteActivity extends AppCompatActivity {
         } else {
             // default category "Личное"
             spinnerCategory.setSelection(1);
+            // NEW: Also set default chip
+            setCategoryChip("personal");
             if (getSupportActionBar() != null) getSupportActionBar().setTitle("Новая заметка");
         }
 
         chipReminder.setOnClickListener(v -> showDateTimePicker());
         btnClearReminder.setOnClickListener(v -> clearReminder());
         btnSave.setOnClickListener(v -> saveNote());
+    }
+
+    // NEW: Method to set category chip selection
+    private void setCategoryChip(String categoryKey) {
+        // Clear all selections first
+        chipGroupCategory.clearCheck();
+
+        // Set the correct chip as checked
+        switch (categoryKey == null ? "personal" : categoryKey) {
+            case "work":
+                chipWork.setChecked(true);
+                break;
+            case "family":
+                chipFamily.setChecked(true);
+                break;
+            case "errand":
+                chipErrand.setChecked(true);
+                break;
+            case "other":
+                chipOther.setChecked(true);
+                break;
+            case "personal":
+            default:
+                chipPersonal.setChecked(true);
+                break;
+        }
+    }
+
+    // NEW: Method to get selected category from chips
+    private String getSelectedCategoryFromChips() {
+        int checkedChipId = chipGroupCategory.getCheckedChipId();
+
+        if (checkedChipId == R.id.chipWork) {
+            return "work";
+        } else if (checkedChipId == R.id.chipFamily) {
+            return "family";
+        } else if (checkedChipId == R.id.chipErrand) {
+            return "errand";
+        } else if (checkedChipId == R.id.chipOther) {
+            return "other";
+        } else {
+            return "personal"; // default
+        }
     }
 
     private int indexOfKey(String key) {
@@ -119,9 +182,15 @@ public class AddEditNoteActivity extends AppCompatActivity {
     }
 
     private String selectedCategoryKey() {
-        int pos = spinnerCategory.getSelectedItemPosition();
-        if (pos < 0 || pos >= CAT_KEYS.length) return "personal";
-        return CAT_KEYS[pos];
+        // NEW: Use chips if available, fallback to spinner
+        if (chipGroupCategory != null) {
+            return getSelectedCategoryFromChips();
+        } else {
+            // Fallback to spinner method
+            int pos = spinnerCategory.getSelectedItemPosition();
+            if (pos < 0 || pos >= CAT_KEYS.length) return "personal";
+            return CAT_KEYS[pos];
+        }
     }
 
     private void showDateTimePicker() {
@@ -184,13 +253,14 @@ public class AddEditNoteActivity extends AppCompatActivity {
 
     private void updateReminderDisplay() {
         if (reminderTime > 0) {
+            // Show the reminder details container
+            findViewById(R.id.reminderDetailsContainer).setVisibility(View.VISIBLE);
+
             String pattern = use24HourFormat() ? "dd MMM yyyy, HH:mm" : "dd MMM yyyy, hh:mm a";
             SimpleDateFormat sdf = new SimpleDateFormat(pattern, new Locale("ru"));
             String base = sdf.format(new Date(reminderTime));
 
             textReminderDateTime.setText("Напоминание: " + base);
-            textReminderDateTime.setVisibility(View.VISIBLE);
-            btnClearReminder.setVisibility(View.VISIBLE);
             chipReminder.setText("Изменить напоминание");
 
             if (repeatDays != 0) {
@@ -199,16 +269,22 @@ public class AddEditNoteActivity extends AppCompatActivity {
             } else {
                 textRepeatDays.setVisibility(View.GONE);
             }
+        } else {
+            // Hide the entire container when no reminder
+            findViewById(R.id.reminderDetailsContainer).setVisibility(View.GONE);
         }
     }
 
     private void clearReminder() {
         reminderTime = 0;
         repeatDays = 0;
-        textReminderDateTime.setVisibility(View.GONE);
-        textRepeatDays.setVisibility(View.GONE);
-        btnClearReminder.setVisibility(View.GONE);
+
+        // Hide the entire reminder details container
+        findViewById(R.id.reminderDetailsContainer).setVisibility(View.GONE);
+
+        // Reset chip text
         chipReminder.setText("Добавить напоминание");
+
         Toast.makeText(this, "Напоминание удалено", Toast.LENGTH_SHORT).show();
     }
 
@@ -224,7 +300,7 @@ public class AddEditNoteActivity extends AppCompatActivity {
         note.setContent(content);
         note.setCreatedAt(System.currentTimeMillis());
         note.setRepeatDays(repeatDays);
-        note.setCategory(selectedCategoryKey());
+        note.setCategory(selectedCategoryKey()); // This now uses chips
 
         if (reminderTime > 0) {
             if (repeatDays != 0) {
