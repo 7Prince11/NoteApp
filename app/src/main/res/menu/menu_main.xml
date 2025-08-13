@@ -3,21 +3,27 @@
     xmlns:app="http://schemas.android.com/apk/res-auto">
 
     <item
+        android:id="@+id/action_sort"
+        android:icon="@drawable/ic_sort"
+        android:title="Сортировка"
+        app:showAsAction="always" />
+
+    <item
         android:id="@+id/action_toggle_view"
         android:icon="@drawable/ic_calendar"
         android:title="Toggle View"
-        app:showAsAction="ifRoom" />
+        app:showAsAction="always" />
 
     <item
         android:id="@+id/action_search"
         android:icon="@drawable/ic_search"
         android:title="Поиск"
-        app:showAsAction="ifRoom" />
+        app:showAsAction="always" />
 
     <item
         android:id="@+id/action_settings"
         android:icon="@drawable/ic_settings"
         android:title="Настройки"
-        app:showAsAction="ifRoom" />
+        app:showAsAction="always" />
 
 </menu>

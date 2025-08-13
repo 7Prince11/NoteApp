@@ -1,12 +1,14 @@
 package com.kelo.noteapp;
 
 import android.app.AlarmManager;
+import android.app.Dialog;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.appwidget.AppWidgetManager;
 import android.content.ComponentName;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Build;
@@ -14,15 +16,20 @@ import android.os.Bundle;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
+import android.view.ViewGroup;
+import android.view.Window;
 import android.widget.ImageButton;
+import android.widget.ImageView;
 import android.widget.TextView;
 import androidx.core.content.ContextCompat;
 import android.graphics.drawable.Drawable;
 import android.graphics.Paint;
 import android.graphics.Color;
 import android.graphics.Canvas;
+import androidx.cardview.widget.CardView;
 import com.google.android.material.snackbar.Snackbar;
 import androidx.recyclerview.widget.ItemTouchHelper;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
 import androidx.recyclerview.widget.GridLayoutManager;
@@ -33,6 +40,8 @@ import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -65,6 +74,10 @@ public class MainActivity extends AppCompatActivity implements NoteAdapter.OnNot
     private Calendar currentCalendar;
     private MenuItem toggleViewMenuItem;
 
+    // Sort functionality
+    private int currentSortMode = 0; // 0 = Default (Date newest), 1 = Date oldest, 2 = Category, 3 = Title
+    private static final String PREF_SORT_MODE = "sort_mode";
+
     private static final String CHANNEL_ID = "notes_reminder_channel";
     private static final int ADD_NOTE_REQUEST = 1;
     private static final int EDIT_NOTE_REQUEST = 2;
@@ -93,9 +106,10 @@ public class MainActivity extends AppCompatActivity implements NoteAdapter.OnNot
         setupListView();
         setupCalendarView();
 
-        // Restore view mode
+        // Restore view mode and sort mode
         SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
         isCalendarView = prefs.getBoolean(PREF_VIEW_MODE, false);
+        currentSortMode = prefs.getInt(PREF_SORT_MODE, 0); // Default sort
         toggleView(isCalendarView);
 
         // Обработчик кнопки добавления
@@ -182,6 +196,7 @@ public class MainActivity extends AppCompatActivity implements NoteAdapter.OnNot
         selectedDateNotes.setVisibility(View.GONE);
         emptyDateView.setVisibility(View.GONE);
     }
+
     @Override
     public void onDateClick(int year, int month, int day) {
         // Format selected date
@@ -229,14 +244,169 @@ public class MainActivity extends AppCompatActivity implements NoteAdapter.OnNot
         prefs.edit().putBoolean(PREF_VIEW_MODE, showCalendar).apply();
     }
 
+    // NEW: Show custom sort dialog
+    private void showCustomSortDialog() {
+        Dialog dialog = new Dialog(this);
+        dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
+        dialog.setContentView(R.layout.dialog_sort_notes);
+
+        // Make dialog take full width with some margin
+        Window window = dialog.getWindow();
+        if (window != null) {
+            window.setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+            window.setBackgroundDrawableResource(android.R.color.transparent);
+        }
+
+        // Get views from dialog
+        CardView cardDateNewest = dialog.findViewById(R.id.cardDateNewest);
+        CardView cardDateOldest = dialog.findViewById(R.id.cardDateOldest);
+        CardView cardCategory = dialog.findViewById(R.id.cardCategory);
+        CardView cardTitle = dialog.findViewById(R.id.cardTitle);
+
+        ImageView checkDateNewest = dialog.findViewById(R.id.checkDateNewest);
+        ImageView checkDateOldest = dialog.findViewById(R.id.checkDateOldest);
+        ImageView checkCategory = dialog.findViewById(R.id.checkCategory);
+        ImageView checkTitle = dialog.findViewById(R.id.checkTitle);
+
+        ImageButton btnCloseDialog = dialog.findViewById(R.id.btnCloseDialog);
+
+        // Set current selection
+        updateSortDialogSelection(checkDateNewest, checkDateOldest, checkCategory, checkTitle);
+
+        // Close button
+        btnCloseDialog.setOnClickListener(v -> dialog.dismiss());
+
+        // Sort option clicks
+        cardDateNewest.setOnClickListener(v -> {
+            setSortMode(0, dialog);
+        });
+
+        cardDateOldest.setOnClickListener(v -> {
+            setSortMode(1, dialog);
+        });
+
+        cardCategory.setOnClickListener(v -> {
+            setSortMode(2, dialog);
+        });
+
+        cardTitle.setOnClickListener(v -> {
+            setSortMode(3, dialog);
+        });
+
+        dialog.show();
+    }
+
+    // NEW: Update visual selection in sort dialog
+    private void updateSortDialogSelection(ImageView checkDateNewest, ImageView checkDateOldest,
+                                           ImageView checkCategory, ImageView checkTitle) {
+        // Hide all checkmarks
+        checkDateNewest.setVisibility(View.GONE);
+        checkDateOldest.setVisibility(View.GONE);
+        checkCategory.setVisibility(View.GONE);
+        checkTitle.setVisibility(View.GONE);
+
+        // Show checkmark for current selection
+        switch (currentSortMode) {
+            case 0:
+                checkDateNewest.setVisibility(View.VISIBLE);
+                break;
+            case 1:
+                checkDateOldest.setVisibility(View.VISIBLE);
+                break;
+            case 2:
+                checkCategory.setVisibility(View.VISIBLE);
+                break;
+            case 3:
+                checkTitle.setVisibility(View.VISIBLE);
+                break;
+        }
+    }
+
+    // NEW: Set sort mode and apply
+    private void setSortMode(int sortMode, Dialog dialog) {
+        currentSortMode = sortMode;
+
+        // Save sort preference
+        SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+        prefs.edit().putInt(PREF_SORT_MODE, currentSortMode).apply();
+
+        // Apply sort and refresh list
+        loadNotes();
+        dialog.dismiss();
+    }
+
+    // Sort notes based on current sort mode
+    private void sortNotes(List<Note> notes) {
+        switch (currentSortMode) {
+            case 0: // Date newest first (default)
+                Collections.sort(notes, new Comparator<Note>() {
+                    @Override
+                    public int compare(Note a, Note b) {
+                        // Pinned notes first
+                        if (a.isPinned() != b.isPinned()) return a.isPinned() ? -1 : 1;
+                        // Then by completion status
+                        if (a.isCompleted() != b.isCompleted()) return a.isCompleted() ? 1 : -1;
+                        // Then by date (newest first)
+                        return Long.compare(b.getCreatedAt(), a.getCreatedAt());
+                    }
+                });
+                break;
+
+            case 1: // Date oldest first
+                Collections.sort(notes, new Comparator<Note>() {
+                    @Override
+                    public int compare(Note a, Note b) {
+                        // Pinned notes first
+                        if (a.isPinned() != b.isPinned()) return a.isPinned() ? -1 : 1;
+                        // Then by completion status
+                        if (a.isCompleted() != b.isCompleted()) return a.isCompleted() ? 1 : -1;
+                        // Then by date (oldest first)
+                        return Long.compare(a.getCreatedAt(), b.getCreatedAt());
+                    }
+                });
+                break;
+
+            case 2: // By category
+                Collections.sort(notes, new Comparator<Note>() {
+                    @Override
+                    public int compare(Note a, Note b) {
+                        // Pinned notes first
+                        if (a.isPinned() != b.isPinned()) return a.isPinned() ? -1 : 1;
+                        // Then by completion status
+                        if (a.isCompleted() != b.isCompleted()) return a.isCompleted() ? 1 : -1;
+                        // Then by category
+                        String catA = a.getCategory() != null ? a.getCategory() : "personal";
+                        String catB = b.getCategory() != null ? b.getCategory() : "personal";
+                        int categoryCompare = catA.compareTo(catB);
+                        if (categoryCompare != 0) return categoryCompare;
+                        // Then by date (newest first) within same category
+                        return Long.compare(b.getCreatedAt(), a.getCreatedAt());
+                    }
+                });
+                break;
+
+            case 3: // By title alphabetically
+                Collections.sort(notes, new Comparator<Note>() {
+                    @Override
+                    public int compare(Note a, Note b) {
+                        // Pinned notes first
+                        if (a.isPinned() != b.isPinned()) return a.isPinned() ? -1 : 1;
+                        // Then by completion status
+                        if (a.isCompleted() != b.isCompleted()) return a.isCompleted() ? 1 : -1;
+                        // Then by title alphabetically
+                        return a.getTitle().compareToIgnoreCase(b.getTitle());
+                    }
+                });
+                break;
+        }
+    }
+
     private void loadNotes() {
         notesList = databaseHelper.getAllNotes();
-        // sort: pinned → not completed → newest
-        java.util.Collections.sort(notesList, (a,b) -> {
-            if (a.isPinned() != b.isPinned()) return a.isPinned() ? -1 : 1;
-            if (a.isCompleted() != b.isCompleted()) return a.isCompleted() ? 1 : -1;
-            return Long.compare(b.getCreatedAt(), a.getCreatedAt());
-        });
+
+        // Apply current sort mode
+        sortNotes(notesList);
+
         if (notesList.isEmpty()) {
             recyclerView.setVisibility(View.GONE);
             emptyView.setVisibility(View.VISIBLE);
@@ -341,21 +511,13 @@ public class MainActivity extends AppCompatActivity implements NoteAdapter.OnNot
         databaseHelper.updateNote(note);
 
         if (!isCalendarView) {
-            // Re-sort list: pinned first, then not completed, then newest
-            java.util.Collections.sort(notesList, (a,b) -> {
-                if (a.isPinned() != b.isPinned()) return a.isPinned() ? -1 : 1;
-                if (a.isCompleted() != b.isCompleted()) return a.isCompleted() ? 1 : -1;
-                return Long.compare(b.getCreatedAt(), a.getCreatedAt());
-            });
+            // Re-sort list with current sort mode
+            sortNotes(notesList);
             noteAdapter.notifyDataSetChanged();
         } else if (selectedDateAdapter != null) {
             // Re-sort selected date notes
             List<Note> dateNotes = ((NoteAdapter) selectedDateNotes.getAdapter()).notesList;
-            java.util.Collections.sort(dateNotes, (a,b) -> {
-                if (a.isPinned() != b.isPinned()) return a.isPinned() ? -1 : 1;
-                if (a.isCompleted() != b.isCompleted()) return a.isCompleted() ? 1 : -1;
-                return Long.compare(b.getCreatedAt(), a.getCreatedAt());
-            });
+            sortNotes(dateNotes);
             selectedDateAdapter.notifyDataSetChanged();
         }
     }
@@ -429,7 +591,11 @@ public class MainActivity extends AppCompatActivity implements NoteAdapter.OnNot
     public boolean onOptionsItemSelected(MenuItem item) {
         int id = item.getItemId();
 
-        if (id == R.id.action_toggle_view) {
+        if (id == R.id.action_sort) {
+            // NEW: Show custom sort dialog
+            showCustomSortDialog();
+            return true;
+        } else if (id == R.id.action_toggle_view) {
             toggleView(!isCalendarView);
             return true;
         } else if (id == R.id.action_search) {
