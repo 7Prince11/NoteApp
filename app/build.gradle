@@ -4,7 +4,7 @@
 
     android {
         namespace 'com.kelo.noteapp'
-        compileSdk 35
+        compileSdk 34
 
         defaultConfig {
             applicationId "com.kelo.noteapp"

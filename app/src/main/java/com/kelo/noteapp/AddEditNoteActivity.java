@@ -53,6 +53,10 @@ public class AddEditNoteActivity extends AppCompatActivity {
     private Calendar reminderCalendar;
     private int repeatDays = 0;
 
+    // ADD THESE NEW VARIABLES TO PRESERVE ORIGINAL STATUS:
+    private boolean originalIsPinned = false;
+    private boolean originalIsCompleted = false;
+
     private static final String PREFS_NAME = "NotesAppPrefs";
     private static final String KEY_TIME_24H = "time_24h";
 
@@ -106,6 +110,10 @@ public class AddEditNoteActivity extends AppCompatActivity {
                 editContent.setText(existing.getContent());
                 reminderTime = existing.getReminderTime();
                 repeatDays = existing.getRepeatDays();
+
+                // PRESERVE ORIGINAL STATUS:
+                originalIsPinned = existing.isPinned();
+                originalIsCompleted = existing.isCompleted();
 
                 // Set category using both methods for compatibility
                 int idx = indexOfKey(existing.getCategory());
@@ -315,12 +323,19 @@ public class AddEditNoteActivity extends AppCompatActivity {
         }
 
         if (noteId == -1) {
+            // Creating new note
             long id = databaseHelper.addNote(note);
             note.setId((int) id);
             if (note.getReminderTime() > 0) scheduleNotification(note);
             Toast.makeText(this, "Заметка добавлена", Toast.LENGTH_SHORT).show();
         } else {
+            // Updating existing note
             note.setId(noteId);
+
+            // PRESERVE ORIGINAL STATUS:
+            note.setPinned(originalIsPinned);
+            note.setCompleted(originalIsCompleted);
+
             databaseHelper.updateNote(note);
             cancelNotification(noteId);
             if (note.getReminderTime() > 0) scheduleNotification(note);

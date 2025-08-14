@@ -1,16 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools"
-    >
+    xmlns:tools="http://schemas.android.com/tools">
 
-    <!-- Разрешения -->
+    <!-- Existing permissions -->
     <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
     <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
-    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <!-- Enhanced notification permissions -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
 
     <application
         android:allowBackup="true"
@@ -23,7 +25,7 @@
         android:theme="@style/Theme.NotesApp"
         tools:targetApi="31">
 
-        <!-- Главная активность -->
+        <!-- Main Activity with enhanced intent handling -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -32,19 +34,26 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+
+            <!-- Handle notification clicks -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
         </activity>
 
-        <!-- Активность добавления/редактирования заметки -->
+        <!-- Add/Edit Note Activity with enhanced intent handling -->
         <activity
             android:name=".AddEditNoteActivity"
             android:parentActivityName=".MainActivity"
-            android:windowSoftInputMode="adjustResize">
+            android:windowSoftInputMode="adjustResize"
+            android:launchMode="singleTop">
             <meta-data
                 android:name="android.support.PARENT_ACTIVITY"
                 android:value=".MainActivity" />
         </activity>
 
-        <!-- Активность поиска -->
+        <!-- Search Activity -->
         <activity
             android:name=".SearchActivity"
             android:parentActivityName=".MainActivity"
@@ -54,7 +63,7 @@
                 android:value=".MainActivity" />
         </activity>
 
-        <!-- Активность настроек -->
+        <!-- Settings Activity -->
         <activity
             android:name=".SettingsActivity"
             android:parentActivityName=".MainActivity">
@@ -63,19 +72,24 @@
                 android:value=".MainActivity" />
         </activity>
 
-        <!-- Приемник для уведомлений -->
+        <!-- Enhanced Notification Receiver -->
         <receiver
             android:name=".NotificationReceiver"
             android:enabled="true"
             android:exported="false" />
 
-        <!-- Приемник для действий с уведомлениями -->
+        <!-- Enhanced Notification Action Receiver -->
         <receiver
             android:name=".NotificationActionReceiver"
             android:enabled="true"
-            android:exported="false" />
+            android:exported="false">
+            <intent-filter>
+                <action android:name="ACTION_COMPLETE" />
+                <action android:name="ACTION_SNOOZE" />
+            </intent-filter>
+        </receiver>
 
-        <!-- Приемник для перезапуска уведомлений после перезагрузки устройства -->
+        <!-- Boot Receiver -->
         <receiver
             android:name=".BootReceiver"
             android:enabled="true"
@@ -88,7 +102,7 @@
             </intent-filter>
         </receiver>
 
-        <!-- Виджет -->
+        <!-- Widget -->
         <receiver
             android:name=".NotesWidgetProvider"
             android:exported="true">

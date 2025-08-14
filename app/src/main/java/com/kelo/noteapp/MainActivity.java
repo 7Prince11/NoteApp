@@ -1,15 +1,18 @@
 package com.kelo.noteapp;
 
+import android.annotation.SuppressLint;
 import android.app.AlarmManager;
 import android.app.Dialog;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.appwidget.AppWidgetManager;
+import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.os.Build;
 import android.os.Bundle;
@@ -74,6 +77,9 @@ public class MainActivity extends AppCompatActivity implements NoteAdapter.OnNot
     private Calendar currentCalendar;
     private MenuItem toggleViewMenuItem;
 
+    // Notification synchronization
+    private BroadcastReceiver noteUpdateReceiver;
+
     // Sort functionality
     private int currentSortMode = 0; // 0 = Default (Date newest), 1 = Date oldest, 2 = Category, 3 = Title
     private static final String PREF_SORT_MODE = "sort_mode";
@@ -112,6 +118,9 @@ public class MainActivity extends AppCompatActivity implements NoteAdapter.OnNot
         currentSortMode = prefs.getInt(PREF_SORT_MODE, 0); // Default sort
         toggleView(isCalendarView);
 
+        // Setup notification synchronization
+        setupBroadcastReceiver();
+
         // Обработчик кнопки добавления
         fabAdd.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -140,6 +149,47 @@ public class MainActivity extends AppCompatActivity implements NoteAdapter.OnNot
 
         // Common
         fabAdd = findViewById(R.id.fabAdd);
+    }
+
+    @SuppressLint("UnspecifiedRegisterReceiverFlag")
+    private void setupBroadcastReceiver() {
+        noteUpdateReceiver = new BroadcastReceiver() {
+            @Override
+            public void onReceive(Context context, Intent intent) {
+                if ("com.kelo.noteapp.NOTE_UPDATED".equals(intent.getAction())) {
+                    int noteId = intent.getIntExtra("note_id", -1);
+                    String action = intent.getStringExtra("action");
+
+                    if ("completed".equals(action)) {
+                        // Refresh the list to show completed status
+                        if (isCalendarView) {
+                            updateCalendarDisplay();
+                        } else {
+                            loadNotes();
+                        }
+
+                        // Show feedback to user
+                        if (fabAdd != null) {
+                            Snackbar.make(fabAdd, "Задача выполнена из уведомления", Snackbar.LENGTH_SHORT).show();
+                        }
+                    } else if ("snoozed".equals(action)) {
+                        // Show feedback that note was snoozed
+                        if (fabAdd != null) {
+                            Snackbar.make(fabAdd, "Напоминание отложено на 10 минут", Snackbar.LENGTH_SHORT).show();
+                        }
+                    }
+                }
+            }
+        };
+
+        IntentFilter filter = new IntentFilter("com.kelo.noteapp.NOTE_UPDATED");
+
+        // FIX: Add RECEIVER_NOT_EXPORTED flag for Android 13+ compatibility
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(noteUpdateReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
+        } else {
+            registerReceiver(noteUpdateReceiver, filter);
+        }
     }
 
     private void setupListView() {
@@ -451,15 +501,17 @@ public class MainActivity extends AppCompatActivity implements NoteAdapter.OnNot
             adapter = noteAdapter;
         }
 
-        // Отмена уведомления если есть
+        // ENHANCED: Cancel notification AND alarm for this note
         if (note.getReminderTime() > 0) {
             cancelNotification(note.getId());
+            // Also cancel the notification if it's currently showing
+            NotificationReceiver.cancelNotification(this, note.getId());
         }
 
-        // Удаление из базы данных
+        // Delete from database
         databaseHelper.deleteNote(note.getId());
 
-        // Обновление списка
+        // Update the list
         if (isCalendarView && selectedDateAdapter != null) {
             ((NoteAdapter) adapter).notesList.remove(position);
             adapter.notifyItemRemoved(position);
@@ -477,6 +529,8 @@ public class MainActivity extends AppCompatActivity implements NoteAdapter.OnNot
                 emptyView.setVisibility(View.VISIBLE);
             }
         }
+
+        updateWidget();
     }
 
     @Override
@@ -493,8 +547,16 @@ public class MainActivity extends AppCompatActivity implements NoteAdapter.OnNot
         }
 
         note.setCompleted(!note.isCompleted());
+
+        // If note is being marked as completed, cancel its notification
+        if (note.isCompleted() && note.getReminderTime() > 0) {
+            cancelNotification(note.getId());
+            NotificationReceiver.cancelNotification(this, note.getId());
+        }
+
         databaseHelper.updateNote(note);
         adapter.notifyItemChanged(position);
+        updateWidget();
     }
 
     @Override
@@ -522,7 +584,9 @@ public class MainActivity extends AppCompatActivity implements NoteAdapter.OnNot
         }
     }
 
+    // Enhanced method for better notification cancellation
     private void cancelNotification(int noteId) {
+        // Cancel the alarm
         AlarmManager alarmManager = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
         Intent intent = new Intent(this, NotificationReceiver.class);
         PendingIntent pendingIntent = PendingIntent.getBroadcast(
@@ -531,7 +595,16 @@ public class MainActivity extends AppCompatActivity implements NoteAdapter.OnNot
                 intent,
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
         );
-        alarmManager.cancel(pendingIntent);
+        if (alarmManager != null) {
+            alarmManager.cancel(pendingIntent);
+        }
+
+        // Cancel any currently showing notification
+        NotificationManager notificationManager =
+                (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+        if (notificationManager != null) {
+            notificationManager.cancel(noteId);
+        }
     }
 
     private void createNotificationChannel() {
@@ -577,6 +650,14 @@ public class MainActivity extends AppCompatActivity implements NoteAdapter.OnNot
             loadNotes();
         }
         updateWidget();
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        if (noteUpdateReceiver != null) {
+            unregisterReceiver(noteUpdateReceiver);
+        }
     }
 
     @Override
@@ -692,6 +773,7 @@ public class MainActivity extends AppCompatActivity implements NoteAdapter.OnNot
                             // cancel reminder if any
                             if (note.getReminderTime() > 0) {
                                 cancelNotification(note.getId());
+                                NotificationReceiver.cancelNotification(MainActivity.this, note.getId());
                             }
                             // remove from DB & list
                             databaseHelper.deleteNote(note.getId());
@@ -734,8 +816,16 @@ public class MainActivity extends AppCompatActivity implements NoteAdapter.OnNot
                         } else if (direction == ItemTouchHelper.RIGHT) {
                             // Toggle complete
                             note.setCompleted(!note.isCompleted());
+
+                            // If note is being marked as completed, cancel its notification
+                            if (note.isCompleted() && note.getReminderTime() > 0) {
+                                cancelNotification(note.getId());
+                                NotificationReceiver.cancelNotification(MainActivity.this, note.getId());
+                            }
+
                             databaseHelper.updateNote(note);
                             noteAdapter.notifyItemChanged(pos);
+                            updateWidget();
                         }
                     }
                 };
