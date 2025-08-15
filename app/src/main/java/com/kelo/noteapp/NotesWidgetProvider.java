@@ -28,7 +28,7 @@ public class NotesWidgetProvider extends AppWidgetProvider {
         List<Note> notes = databaseHelper.getActiveNotes();
 
         // Очистка всех текстовых полей
-        views.setTextViewText(R.id.widgetTitle, "Мои заметки");
+        views.setTextViewText(R.id.widgetTitle, "MindStack");
         views.setTextViewText(R.id.noteTitle1, "");
         views.setTextViewText(R.id.noteTitle2, "");
         views.setTextViewText(R.id.noteTitle3, "");

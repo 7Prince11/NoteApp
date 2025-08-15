@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Мои Заметки</string>
+    <string name="app_name">MindStack</string>
 
     <!-- Главный экран -->
-    <string name="title_main">Мои заметки</string>
+    <string name="title_main">MindStack</string>
     <string name="empty_notes_message">Нет заметок\nНажмите + чтобы добавить</string>
 
     <!-- Экран добавления/редактирования -->

@@ -265,7 +265,7 @@ public class SettingsActivity extends AppCompatActivity {
     private void showAboutDialog() {
         new AlertDialog.Builder(this)
                 .setTitle("О приложении")
-                .setMessage("Мои Заметки v1.0\n\nПростое и удобное приложение для создания заметок с напоминаниями.\n\n© 2024 Example Company")
+                .setMessage("MindStack v1.0\n\nПростое и удобное приложение для создания заметок с напоминаниями.\n\n© 2024 Example Company")
                 .setPositiveButton("OK", null)
                 .show();
     }
