@@ -6,6 +6,7 @@ import android.os.Bundle;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -24,7 +25,7 @@ public class TrashActivity extends AppCompatActivity implements TrashAdapter.OnT
     private RecyclerView recyclerView;
     private TrashAdapter trashAdapter;
     private List<Note> trashNotes;
-    private TextView emptyView;
+    private LinearLayout emptyView;
     private DatabaseHelper databaseHelper;
 
     @Override

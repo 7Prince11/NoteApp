@@ -72,6 +72,12 @@
                 android:value=".MainActivity" />
         </activity>
 
+        <activity
+            android:name=".TrashActivity"
+            android:exported="false" />
+
+
+
         <!-- Enhanced Notification Receiver -->
         <receiver
             android:name=".NotificationReceiver"
