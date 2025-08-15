@@ -7,7 +7,6 @@ import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.LinearLayout;
-import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.appcompat.app.AlertDialog;
@@ -51,10 +50,11 @@ public class TrashActivity extends AppCompatActivity implements TrashAdapter.OnT
         recyclerView.setLayoutManager(new LinearLayoutManager(this));
         recyclerView.setHasFixedSize(true);
 
-        loadTrashNotes();
-
-        // Auto-cleanup old notes based on user preference
+        // Auto-cleanup old notes based on user preference (BEFORE loading notes)
         performAutoCleanup();
+
+        // Load notes after cleanup
+        loadTrashNotes();
     }
 
     private void loadTrashNotes() {
@@ -76,8 +76,16 @@ public class TrashActivity extends AppCompatActivity implements TrashAdapter.OnT
         SharedPreferences prefs = getSharedPreferences("NotesAppPrefs", MODE_PRIVATE);
         int trashDays = prefs.getInt("trash_auto_delete_days", 30); // Default 30 days
 
+        // Only perform cleanup if auto-deletion is enabled (not 0 = never)
         if (trashDays > 0) {
-            databaseHelper.cleanupOldTrashNotes(trashDays);
+            int deletedCount = databaseHelper.cleanupOldTrashNotes(trashDays);
+
+            // Optionally show a message if notes were deleted
+            if (deletedCount > 0) {
+                Toast.makeText(this,
+                        "Автоматически удалено старых заметок: " + deletedCount,
+                        Toast.LENGTH_SHORT).show();
+            }
         }
     }
 

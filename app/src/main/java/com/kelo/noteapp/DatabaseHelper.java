@@ -16,7 +16,7 @@ import java.util.Set;
 
 public class DatabaseHelper extends SQLiteOpenHelper {
 
-    // ⬆ Bumped to v5: adds COLUMN_IS_DELETED and COLUMN_DELETED_AT for trash functionality
+    // Database version bumped to v5: adds COLUMN_IS_DELETED and COLUMN_DELETED_AT for trash functionality
     private static final int DATABASE_VERSION = 5;
     private static final String DATABASE_NAME = "NotesDatabase.db";
 
@@ -31,7 +31,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     private static final String COLUMN_IS_PINNED = "is_pinned";
     private static final String COLUMN_REPEAT_DAYS = "repeat_days";
     private static final String COLUMN_CATEGORY = "category";
-    // NEW: Trash functionality
+    // Trash functionality columns
     private static final String COLUMN_IS_DELETED = "is_deleted";
     private static final String COLUMN_DELETED_AT = "deleted_at";
 
@@ -53,7 +53,8 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         super(context, DATABASE_NAME, null, DATABASE_VERSION);
     }
 
-    @Override public void onCreate(SQLiteDatabase db) {
+    @Override
+    public void onCreate(SQLiteDatabase db) {
         db.execSQL(CREATE_TABLE_NOTES);
     }
 
@@ -78,8 +79,9 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         }
     }
 
-    // --- CREATE ---
-    long addNote(Note note) {
+    // ===== CREATE OPERATIONS =====
+
+    public long addNote(Note note) {
         SQLiteDatabase db = this.getWritableDatabase();
         ContentValues values = new ContentValues();
         values.put(COLUMN_TITLE, note.getTitle());
@@ -97,8 +99,9 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         return id;
     }
 
-    // --- READ ONE ---
-    Note getNote(int id) {
+    // ===== READ OPERATIONS =====
+
+    public Note getNote(int id) {
         SQLiteDatabase db = this.getReadableDatabase();
         Cursor c = db.query(
                 TABLE_NOTES,
@@ -116,8 +119,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         return note;
     }
 
-    // --- READ ALL (only non-deleted notes) ---
-    List<Note> getAllNotes() {
+    public List<Note> getAllNotes() {
         List<Note> list = new ArrayList<>();
         String sql = "SELECT * FROM " + TABLE_NOTES +
                 " WHERE " + COLUMN_IS_DELETED + "=0" +
@@ -127,15 +129,16 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         SQLiteDatabase db = this.getReadableDatabase();
         Cursor c = db.rawQuery(sql, null);
         if (c.moveToFirst()) {
-            do { list.add(readNoteFromCursor(c)); } while (c.moveToNext());
+            do {
+                list.add(readNoteFromCursor(c));
+            } while (c.moveToNext());
         }
         c.close();
         db.close();
         return list;
     }
 
-    // --- FILTER BY CATEGORY (only non-deleted notes) ---
-    List<Note> getNotesByCategory(String categoryKey) {
+    public List<Note> getNotesByCategory(String categoryKey) {
         List<Note> list = new ArrayList<>();
         SQLiteDatabase db = this.getReadableDatabase();
         Cursor c = db.query(TABLE_NOTES, null,
@@ -144,128 +147,8 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                 null, null,
                 COLUMN_IS_PINNED + " DESC, " + COLUMN_IS_COMPLETED + " ASC, " + COLUMN_CREATED_AT + " DESC");
         if (c.moveToFirst()) {
-            do { list.add(readNoteFromCursor(c)); } while (c.moveToNext());
-        }
-        c.close();
-        db.close();
-        return list;
-    }
-
-    // --- TRASH FUNCTIONALITY ---
-
-    // Get all deleted notes (trash)
-    List<Note> getTrashNotes() {
-        List<Note> list = new ArrayList<>();
-        String sql = "SELECT * FROM " + TABLE_NOTES +
-                " WHERE " + COLUMN_IS_DELETED + "=1" +
-                " ORDER BY " + COLUMN_DELETED_AT + " DESC";
-        SQLiteDatabase db = this.getReadableDatabase();
-        Cursor c = db.rawQuery(sql, null);
-        if (c.moveToFirst()) {
-            do { list.add(readNoteFromCursor(c)); } while (c.moveToNext());
-        }
-        c.close();
-        db.close();
-        return list;
-    }
-
-    // Soft delete note (move to trash)
-    void moveToTrash(int id) {
-        SQLiteDatabase db = this.getWritableDatabase();
-        ContentValues values = new ContentValues();
-        values.put(COLUMN_IS_DELETED, 1);
-        values.put(COLUMN_DELETED_AT, System.currentTimeMillis());
-        db.update(TABLE_NOTES, values, COLUMN_ID + " = ?", new String[]{String.valueOf(id)});
-        db.close();
-    }
-
-    // Restore note from trash
-    void restoreFromTrash(int id) {
-        SQLiteDatabase db = this.getWritableDatabase();
-        ContentValues values = new ContentValues();
-        values.put(COLUMN_IS_DELETED, 0);
-        values.put(COLUMN_DELETED_AT, 0);
-        db.update(TABLE_NOTES, values, COLUMN_ID + " = ?", new String[]{String.valueOf(id)});
-        db.close();
-    }
-
-    // Permanently delete note
-    void permanentlyDeleteNote(int id) {
-        SQLiteDatabase db = this.getWritableDatabase();
-        db.delete(TABLE_NOTES, COLUMN_ID + " = ?", new String[]{String.valueOf(id)});
-        db.close();
-    }
-
-    // Empty trash (permanently delete all trashed notes)
-    void emptyTrash() {
-        SQLiteDatabase db = this.getWritableDatabase();
-        db.delete(TABLE_NOTES, COLUMN_IS_DELETED + " = 1", null);
-        db.close();
-    }
-
-    // Auto-cleanup old trash notes based on days
-    void cleanupOldTrashNotes(int daysToKeep) {
-        long cutoffTime = System.currentTimeMillis() - (daysToKeep * 24L * 60L * 60L * 1000L);
-        SQLiteDatabase db = this.getWritableDatabase();
-        db.delete(TABLE_NOTES,
-                COLUMN_IS_DELETED + " = 1 AND " + COLUMN_DELETED_AT + " < ?",
-                new String[]{String.valueOf(cutoffTime)});
-        db.close();
-    }
-
-    // Get trash count
-    int getTrashCount() {
-        SQLiteDatabase db = this.getReadableDatabase();
-        Cursor c = db.rawQuery("SELECT COUNT(*) FROM " + TABLE_NOTES + " WHERE " + COLUMN_IS_DELETED + " = 1", null);
-        int count = 0;
-        if (c != null) {
-            if (c.moveToFirst()) count = c.getInt(0);
-            c.close();
-        }
-        db.close();
-        return count;
-    }
-
-    // --- CALENDAR HELPERS (updated to exclude deleted notes) ---
-    List<Note> getNotesForDate(int year, int month, int day) {
-        List<Note> list = new ArrayList<>();
-
-        Calendar dateCal = Calendar.getInstance();
-        dateCal.set(year, month, day, 0, 0, 0);
-        dateCal.set(Calendar.MILLISECOND, 0);
-        long startTime = dateCal.getTimeInMillis();
-
-        Calendar endCal = Calendar.getInstance();
-        endCal.set(year, month, day, 23, 59, 59);
-        endCal.set(Calendar.MILLISECOND, 999);
-        long endTime = endCal.getTimeInMillis();
-
-        long currentTime = System.currentTimeMillis();
-        if (startTime < currentTime) startTime = currentTime;
-
-        String sql = "SELECT * FROM " + TABLE_NOTES +
-                " WHERE (" + COLUMN_REMINDER_TIME + " > 0 OR " + COLUMN_REPEAT_DAYS + " != 0)" +
-                " AND " + COLUMN_IS_DELETED + "=0" +
-                " ORDER BY " + COLUMN_IS_PINNED + " DESC, " +
-                COLUMN_IS_COMPLETED + " ASC, " +
-                COLUMN_CREATED_AT + " DESC";
-
-        SQLiteDatabase db = this.getReadableDatabase();
-        Cursor c = db.rawQuery(sql, null);
-
-        if (c.moveToFirst()) {
             do {
-                Note n = readNoteFromCursor(c);
-
-                if (n.getReminderTime() >= startTime && n.getReminderTime() <= endTime) {
-                    list.add(n);
-                } else if (n.getRepeatDays() != 0 && startTime >= currentTime) {
-                    int dayOfWeek = dateCal.get(Calendar.DAY_OF_WEEK);
-                    int bitIndex = convertDayOfWeekToBitIndex(dayOfWeek);
-                    if (((n.getRepeatDays() >> bitIndex) & 1) == 1) {
-                        list.add(n);
-                    }
-                }
+                list.add(readNoteFromCursor(c));
             } while (c.moveToNext());
         }
         c.close();
@@ -273,109 +156,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         return list;
     }
 
-    Map<String, Integer> getNotesCountForMonth(int year, int month) {
-        Map<String, Integer> countMap = new HashMap<>();
-
-        Calendar today = Calendar.getInstance();
-        today.set(Calendar.HOUR_OF_DAY, 0);
-        today.set(Calendar.MINUTE, 0);
-        today.set(Calendar.SECOND, 0);
-        today.set(Calendar.MILLISECOND, 0);
-        long todayStart = today.getTimeInMillis();
-
-        Calendar cal = Calendar.getInstance();
-        cal.set(year, month, 1, 0, 0, 0);
-        cal.set(Calendar.MILLISECOND, 0);
-
-        SQLiteDatabase db = this.getReadableDatabase();
-        Cursor c = db.rawQuery("SELECT * FROM " + TABLE_NOTES +
-                " WHERE " + COLUMN_REMINDER_TIME + " > 0 AND " +
-                COLUMN_IS_COMPLETED + " = 0 AND " + COLUMN_IS_DELETED + " = 0", null);
-
-        if (c.moveToFirst()) {
-            do {
-                long reminderTime = c.getLong(c.getColumnIndex(COLUMN_REMINDER_TIME));
-                if (reminderTime >= todayStart) {
-                    Calendar reminderCal = Calendar.getInstance();
-                    reminderCal.setTimeInMillis(reminderTime);
-
-                    if (reminderCal.get(Calendar.YEAR) == year &&
-                            reminderCal.get(Calendar.MONTH) == month) {
-                        String dateKey = String.format("%04d-%02d-%02d",
-                                year, month + 1, reminderCal.get(Calendar.DAY_OF_MONTH));
-                        countMap.put(dateKey, countMap.getOrDefault(dateKey, 0) + 1);
-                    }
-                }
-            } while (c.moveToNext());
-        }
-        c.close();
-        db.close();
-
-        return countMap;
-    }
-
-    Set<String> getRecurringDatesForMonth(int year, int month) {
-        Set<String> recurringDates = new HashSet<>();
-
-        Calendar today = Calendar.getInstance();
-        today.set(Calendar.HOUR_OF_DAY, 0);
-        today.set(Calendar.MINUTE, 0);
-        today.set(Calendar.SECOND, 0);
-        today.set(Calendar.MILLISECOND, 0);
-
-        Calendar weekAhead = (Calendar) today.clone();
-        weekAhead.add(Calendar.DAY_OF_MONTH, 7);
-
-        SQLiteDatabase db = this.getReadableDatabase();
-        Cursor c = db.rawQuery("SELECT * FROM " + TABLE_NOTES +
-                " WHERE " + COLUMN_REPEAT_DAYS + " != 0 AND " +
-                COLUMN_IS_COMPLETED + " = 0 AND " + COLUMN_IS_DELETED + " = 0", null);
-
-        if (c.moveToFirst()) {
-            do {
-                int repeatDays = c.getInt(c.getColumnIndex(COLUMN_REPEAT_DAYS));
-
-                Calendar checkDate = (Calendar) today.clone();
-                for (int i = 0; i < 7; i++) {
-                    if (checkDate.get(Calendar.YEAR) == year &&
-                            checkDate.get(Calendar.MONTH) == month) {
-
-                        int dayOfWeek = checkDate.get(Calendar.DAY_OF_WEEK);
-                        int bitIndex = convertDayOfWeekToBitIndex(dayOfWeek);
-
-                        if (((repeatDays >> bitIndex) & 1) == 1) {
-                            String dateKey = String.format("%04d-%02d-%02d",
-                                    checkDate.get(Calendar.YEAR),
-                                    checkDate.get(Calendar.MONTH) + 1,
-                                    checkDate.get(Calendar.DAY_OF_MONTH));
-                            recurringDates.add(dateKey);
-                        }
-                    }
-                    checkDate.add(Calendar.DAY_OF_MONTH, 1);
-                }
-            } while (c.moveToNext());
-        }
-        c.close();
-        db.close();
-
-        return recurringDates;
-    }
-
-    private int convertDayOfWeekToBitIndex(int calendarDayOfWeek) {
-        switch (calendarDayOfWeek) {
-            case Calendar.MONDAY: return 0;
-            case Calendar.TUESDAY: return 1;
-            case Calendar.WEDNESDAY: return 2;
-            case Calendar.THURSDAY: return 3;
-            case Calendar.FRIDAY: return 4;
-            case Calendar.SATURDAY: return 5;
-            case Calendar.SUNDAY: return 6;
-            default: return 0;
-        }
-    }
-
-    // Active notes (unchanged, but now excludes deleted)
-    List<Note> getActiveNotes() {
+    public List<Note> getActiveNotes() {
         List<Note> list = new ArrayList<>();
         String sql = "SELECT * FROM " + TABLE_NOTES +
                 " WHERE " + COLUMN_IS_COMPLETED + " = 0 AND " + COLUMN_IS_DELETED + " = 0" +
@@ -383,15 +164,18 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         SQLiteDatabase db = this.getReadableDatabase();
         Cursor c = db.rawQuery(sql, null);
         if (c.moveToFirst()) {
-            do { list.add(readNoteFromCursor(c)); } while (c.moveToNext());
+            do {
+                list.add(readNoteFromCursor(c));
+            } while (c.moveToNext());
         }
         c.close();
         db.close();
         return list;
     }
 
-    // --- UPDATE ---
-    int updateNote(Note note) {
+    // ===== UPDATE OPERATIONS =====
+
+    public int updateNote(Note note) {
         SQLiteDatabase db = this.getWritableDatabase();
         ContentValues values = new ContentValues();
         values.put(COLUMN_TITLE, note.getTitle());
@@ -407,13 +191,13 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         return rows;
     }
 
-    // --- DELETE (now soft delete by default) ---
-    void deleteNote(int id) {
+    // ===== DELETE OPERATIONS =====
+
+    public void deleteNote(int id) {
         moveToTrash(id); // Use soft delete by default
     }
 
-    // --- UTILITIES ---
-    void deleteAllNotes() {
+    public void deleteAllNotes() {
         SQLiteDatabase db = this.getWritableDatabase();
         // Move all non-deleted notes to trash
         ContentValues values = new ContentValues();
@@ -423,7 +207,92 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         db.close();
     }
 
-    int getNotesCount() {
+    // ===== TRASH FUNCTIONALITY =====
+
+    public List<Note> getTrashNotes() {
+        List<Note> list = new ArrayList<>();
+        String sql = "SELECT * FROM " + TABLE_NOTES +
+                " WHERE " + COLUMN_IS_DELETED + "=1" +
+                " ORDER BY " + COLUMN_DELETED_AT + " DESC";
+        SQLiteDatabase db = this.getReadableDatabase();
+        Cursor c = db.rawQuery(sql, null);
+        if (c.moveToFirst()) {
+            do {
+                list.add(readNoteFromCursor(c));
+            } while (c.moveToNext());
+        }
+        c.close();
+        db.close();
+        return list;
+    }
+
+    public void moveToTrash(int id) {
+        SQLiteDatabase db = this.getWritableDatabase();
+        ContentValues values = new ContentValues();
+        values.put(COLUMN_IS_DELETED, 1);
+        values.put(COLUMN_DELETED_AT, System.currentTimeMillis());
+        db.update(TABLE_NOTES, values, COLUMN_ID + " = ?", new String[]{String.valueOf(id)});
+        db.close();
+    }
+
+    public void restoreFromTrash(int id) {
+        SQLiteDatabase db = this.getWritableDatabase();
+        ContentValues values = new ContentValues();
+        values.put(COLUMN_IS_DELETED, 0);
+        values.put(COLUMN_DELETED_AT, 0);
+        db.update(TABLE_NOTES, values, COLUMN_ID + " = ?", new String[]{String.valueOf(id)});
+        db.close();
+    }
+
+    public void permanentlyDeleteNote(int id) {
+        SQLiteDatabase db = this.getWritableDatabase();
+        db.delete(TABLE_NOTES, COLUMN_ID + " = ?", new String[]{String.valueOf(id)});
+        db.close();
+    }
+
+    public void emptyTrash() {
+        SQLiteDatabase db = this.getWritableDatabase();
+        db.delete(TABLE_NOTES, COLUMN_IS_DELETED + " = 1", null);
+        db.close();
+    }
+
+    public int cleanupOldTrashNotes(int daysToKeep) {
+        long cutoffTime = System.currentTimeMillis() - (daysToKeep * 24L * 60L * 60L * 1000L);
+        SQLiteDatabase db = this.getWritableDatabase();
+
+        int deletedCount = db.delete(TABLE_NOTES,
+                COLUMN_IS_DELETED + " = 1 AND " + COLUMN_DELETED_AT + " < ?",
+                new String[]{String.valueOf(cutoffTime)});
+
+        db.close();
+        return deletedCount; // Return how many notes were actually deleted
+    }
+
+    public void moveAllToTrash() {
+        SQLiteDatabase db = this.getWritableDatabase();
+        ContentValues values = new ContentValues();
+        values.put(COLUMN_IS_DELETED, 1);
+        values.put(COLUMN_DELETED_AT, System.currentTimeMillis());
+        db.update(TABLE_NOTES, values, COLUMN_IS_DELETED + " = 0", null);
+        db.close();
+    }
+
+    public int getTrashCount() {
+        SQLiteDatabase db = this.getReadableDatabase();
+        String sql = "SELECT COUNT(*) FROM " + TABLE_NOTES + " WHERE " + COLUMN_IS_DELETED + "=1";
+        Cursor cursor = db.rawQuery(sql, null);
+        int count = 0;
+        if (cursor.moveToFirst()) {
+            count = cursor.getInt(0);
+        }
+        cursor.close();
+        db.close();
+        return count;
+    }
+
+    // ===== UTILITY METHODS =====
+
+    public int getNotesCount() {
         SQLiteDatabase db = this.getReadableDatabase();
         Cursor c = db.rawQuery("SELECT COUNT(*) FROM " + TABLE_NOTES + " WHERE " + COLUMN_IS_DELETED + " = 0", null);
         int count = 0;
@@ -435,17 +304,199 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         return count;
     }
 
-    // ---- internal helper ----
+    // ===== CALENDAR & REMINDER FUNCTIONALITY =====
+
+    public List<Note> getNotesForDate(String dateKey) {
+        List<Note> list = new ArrayList<>();
+        SQLiteDatabase db = this.getReadableDatabase();
+
+        // Get the start and end of the date
+        String[] parts = dateKey.split("-");
+        int year = Integer.parseInt(parts[0]);
+        int month = Integer.parseInt(parts[1]) - 1; // Calendar months are 0-based
+        int day = Integer.parseInt(parts[2]);
+
+        Calendar startOfDay = Calendar.getInstance();
+        startOfDay.set(year, month, day, 0, 0, 0);
+        startOfDay.set(Calendar.MILLISECOND, 0);
+
+        Calendar endOfDay = Calendar.getInstance();
+        endOfDay.set(year, month, day, 23, 59, 59);
+        endOfDay.set(Calendar.MILLISECOND, 999);
+
+        long startTime = startOfDay.getTimeInMillis();
+        long endTime = endOfDay.getTimeInMillis();
+
+        String sql = "SELECT * FROM " + TABLE_NOTES +
+                " WHERE " + COLUMN_REMINDER_TIME + " >= ? AND " + COLUMN_REMINDER_TIME + " <= ?" +
+                " AND " + COLUMN_IS_DELETED + " = 0" +
+                " ORDER BY " + COLUMN_REMINDER_TIME + " ASC";
+
+        Cursor c = db.rawQuery(sql, new String[]{String.valueOf(startTime), String.valueOf(endTime)});
+        if (c.moveToFirst()) {
+            do {
+                list.add(readNoteFromCursor(c));
+            } while (c.moveToNext());
+        }
+        c.close();
+        db.close();
+        return list;
+    }
+
+    // Overloaded method for convenience - converts year, month, day to date string
+    public List<Note> getNotesForDate(int year, int month, int day) {
+        String dateKey = String.format("%04d-%02d-%02d", year, month + 1, day);
+        return getNotesForDate(dateKey);
+    }
+
+    public Set<String> getRecurringDates(int startYear, int startMonth, int endYear, int endMonth) {
+        Set<String> recurringDates = new HashSet<>();
+        SQLiteDatabase db = this.getReadableDatabase();
+
+        String sql = "SELECT " + COLUMN_REMINDER_TIME + ", " + COLUMN_REPEAT_DAYS +
+                " FROM " + TABLE_NOTES +
+                " WHERE " + COLUMN_REPEAT_DAYS + " > 0 AND " + COLUMN_IS_DELETED + " = 0";
+
+        Cursor c = db.rawQuery(sql, null);
+        if (c.moveToFirst()) {
+            do {
+                long reminderTime = c.getLong(0);
+                int repeatDays = c.getInt(1);
+
+                if (reminderTime > 0 && repeatDays > 0) {
+                    Calendar reminderCal = Calendar.getInstance();
+                    reminderCal.setTimeInMillis(reminderTime);
+
+                    Calendar checkDate = Calendar.getInstance();
+                    checkDate.set(startYear, startMonth, 1, 0, 0, 0);
+
+                    Calendar endDate = Calendar.getInstance();
+                    endDate.set(endYear, endMonth + 1, 1, 0, 0, 0);
+
+                    while (checkDate.before(endDate)) {
+                        int dayOfWeek = checkDate.get(Calendar.DAY_OF_WEEK);
+                        int bitIndex = convertDayOfWeekToBitIndex(dayOfWeek);
+
+                        if ((repeatDays & (1 << bitIndex)) != 0) {
+                            String dateKey = String.format("%04d-%02d-%02d",
+                                    checkDate.get(Calendar.YEAR),
+                                    checkDate.get(Calendar.MONTH) + 1,
+                                    checkDate.get(Calendar.DAY_OF_MONTH));
+                            recurringDates.add(dateKey);
+                        }
+                        checkDate.add(Calendar.DAY_OF_MONTH, 1);
+                    }
+                }
+            } while (c.moveToNext());
+        }
+        c.close();
+        db.close();
+
+        return recurringDates;
+    }
+
+    public Set<String> getRecurringDatesForMonth(int year, int month) {
+        return getRecurringDates(year, month, year, month);
+    }
+
+    private int convertDayOfWeekToBitIndex(int calendarDayOfWeek) {
+        switch (calendarDayOfWeek) {
+            case Calendar.MONDAY: return 0;
+            case Calendar.TUESDAY: return 1;
+            case Calendar.WEDNESDAY: return 2;
+            case Calendar.THURSDAY: return 3;
+            case Calendar.FRIDAY: return 4;
+            case Calendar.SATURDAY: return 5;
+            case Calendar.SUNDAY: return 6;
+            default: return 0;
+        }
+    }
+
+    // ===== STATISTICS =====
+
+    public Map<String, Integer> getCategoryStats() {
+        Map<String, Integer> stats = new HashMap<>();
+        SQLiteDatabase db = this.getReadableDatabase();
+
+        String sql = "SELECT " + COLUMN_CATEGORY + ", COUNT(*) FROM " + TABLE_NOTES +
+                " WHERE " + COLUMN_IS_DELETED + " = 0" +
+                " GROUP BY " + COLUMN_CATEGORY;
+
+        Cursor c = db.rawQuery(sql, null);
+        if (c.moveToFirst()) {
+            do {
+                String category = c.getString(0);
+                int count = c.getInt(1);
+                stats.put(category != null ? category : "personal", count);
+            } while (c.moveToNext());
+        }
+        c.close();
+        db.close();
+        return stats;
+    }
+
+    public Map<String, Integer> getNotesCountForMonth(int year, int month) {
+        Map<String, Integer> dateCountMap = new HashMap<>();
+        SQLiteDatabase db = this.getReadableDatabase();
+
+        // Calculate start and end of month
+        Calendar startOfMonth = Calendar.getInstance();
+        startOfMonth.set(year, month, 1, 0, 0, 0);
+        startOfMonth.set(Calendar.MILLISECOND, 0);
+
+        Calendar endOfMonth = Calendar.getInstance();
+        endOfMonth.set(year, month + 1, 1, 0, 0, 0);
+        endOfMonth.add(Calendar.MILLISECOND, -1);
+
+        long startTime = startOfMonth.getTimeInMillis();
+        long endTime = endOfMonth.getTimeInMillis();
+
+        // Query notes with reminders in this month
+        String sql = "SELECT " + COLUMN_REMINDER_TIME + " FROM " + TABLE_NOTES +
+                " WHERE " + COLUMN_REMINDER_TIME + " >= ? AND " + COLUMN_REMINDER_TIME + " <= ?" +
+                " AND " + COLUMN_IS_DELETED + " = 0";
+
+        Cursor c = db.rawQuery(sql, new String[]{String.valueOf(startTime), String.valueOf(endTime)});
+        if (c.moveToFirst()) {
+            do {
+                long reminderTime = c.getLong(0);
+                if (reminderTime > 0) {
+                    Calendar reminderCal = Calendar.getInstance();
+                    reminderCal.setTimeInMillis(reminderTime);
+
+                    String dateKey = String.format("%04d-%02d-%02d",
+                            reminderCal.get(Calendar.YEAR),
+                            reminderCal.get(Calendar.MONTH) + 1,
+                            reminderCal.get(Calendar.DAY_OF_MONTH));
+
+                    dateCountMap.put(dateKey, dateCountMap.getOrDefault(dateKey, 0) + 1);
+                }
+            } while (c.moveToNext());
+        }
+        c.close();
+
+        // Also include recurring notes
+        Set<String> recurringDates = getRecurringDates(year, month, year, month);
+        for (String dateKey : recurringDates) {
+            dateCountMap.put(dateKey, dateCountMap.getOrDefault(dateKey, 0) + 1);
+        }
+
+        db.close();
+        return dateCountMap;
+    }
+
+    // ===== INTERNAL HELPER METHODS =====
+
     private Note readNoteFromCursor(Cursor c) {
         Note n = new Note();
-        n.setId(c.getInt(c.getColumnIndex(COLUMN_ID)));
-        n.setTitle(c.getString(c.getColumnIndex(COLUMN_TITLE)));
-        n.setContent(c.getString(c.getColumnIndex(COLUMN_CONTENT)));
-        n.setCreatedAt(c.getLong(c.getColumnIndex(COLUMN_CREATED_AT)));
-        n.setReminderTime(c.getLong(c.getColumnIndex(COLUMN_REMINDER_TIME)));
-        n.setCompleted(c.getInt(c.getColumnIndex(COLUMN_IS_COMPLETED)) == 1);
-        n.setPinned(c.getInt(c.getColumnIndex(COLUMN_IS_PINNED)) == 1);
-        n.setRepeatDays(c.getInt(c.getColumnIndex(COLUMN_REPEAT_DAYS)));
+        n.setId(c.getInt(c.getColumnIndexOrThrow(COLUMN_ID)));
+        n.setTitle(c.getString(c.getColumnIndexOrThrow(COLUMN_TITLE)));
+        n.setContent(c.getString(c.getColumnIndexOrThrow(COLUMN_CONTENT)));
+        n.setCreatedAt(c.getLong(c.getColumnIndexOrThrow(COLUMN_CREATED_AT)));
+        n.setReminderTime(c.getLong(c.getColumnIndexOrThrow(COLUMN_REMINDER_TIME)));
+        n.setCompleted(c.getInt(c.getColumnIndexOrThrow(COLUMN_IS_COMPLETED)) == 1);
+        n.setPinned(c.getInt(c.getColumnIndexOrThrow(COLUMN_IS_PINNED)) == 1);
+        n.setRepeatDays(c.getInt(c.getColumnIndexOrThrow(COLUMN_REPEAT_DAYS)));
 
         // Category
         int idxCat = c.getColumnIndex(COLUMN_CATEGORY);
