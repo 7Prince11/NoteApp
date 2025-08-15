@@ -2,6 +2,7 @@ package com.kelo.noteapp;
 
 import android.app.AlertDialog;
 import android.content.DialogInterface;
+import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.view.MenuItem;
@@ -24,18 +25,21 @@ public class SettingsActivity extends AppCompatActivity {
     private static final String KEY_NOTIFICATION_VIBRATE = "notification_vibrate";
     private static final String KEY_DEFAULT_REMINDER = "default_reminder";
     private static final String KEY_SORT_ORDER = "sort_order";
-    private static final String KEY_TIME_24H = "time_24h"; // NEW
+    private static final String KEY_TIME_24H = "time_24h";
+    private static final String KEY_TRASH_AUTO_DELETE_DAYS = "trash_auto_delete_days"; // NEW
 
     private SharedPreferences preferences;
 
     private SwitchMaterial switchDarkMode;
     private SwitchMaterial switchSound;
     private SwitchMaterial switchVibrate;
-    private SwitchMaterial switchTime24h;    // NEW
+    private SwitchMaterial switchTime24h;
 
     private TextView textSortOrder;
     private TextView textDefaultReminder;
     private TextView textNotesCount;
+    private TextView textTrashAutoDelete; // NEW
+    private TextView textTrashCount; // NEW
 
     private DatabaseHelper databaseHelper;
 
@@ -58,11 +62,13 @@ public class SettingsActivity extends AppCompatActivity {
         switchDarkMode = findViewById(R.id.switchDarkMode);
         switchSound = findViewById(R.id.switchSound);
         switchVibrate = findViewById(R.id.switchVibrate);
-        switchTime24h = findViewById(R.id.switchTime24h); // NEW
+        switchTime24h = findViewById(R.id.switchTime24h);
 
         textSortOrder = findViewById(R.id.textSortOrder);
         textDefaultReminder = findViewById(R.id.textDefaultReminder);
         textNotesCount = findViewById(R.id.textNotesCount);
+        textTrashAutoDelete = findViewById(R.id.textTrashAutoDelete); // NEW
+        textTrashCount = findViewById(R.id.textTrashCount); // NEW
 
         // Load current settings
         loadSettings();
@@ -92,7 +98,7 @@ public class SettingsActivity extends AppCompatActivity {
             }
         });
 
-        // NEW: Time format 24h / 12h
+        // Time format 24h / 12h
         if (switchTime24h != null) {
             switchTime24h.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
                 @Override public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
@@ -120,6 +126,35 @@ public class SettingsActivity extends AppCompatActivity {
             layoutDefaultReminder.setOnClickListener(new View.OnClickListener() {
                 @Override public void onClick(View v) {
                     showDefaultReminderDialog();
+                }
+            });
+        }
+
+        // NEW: Trash management
+        View layoutViewTrash = findViewById(R.id.layoutViewTrash);
+        if (layoutViewTrash != null) {
+            layoutViewTrash.setOnClickListener(new View.OnClickListener() {
+                @Override public void onClick(View v) {
+                    Intent intent = new Intent(SettingsActivity.this, TrashActivity.class);
+                    startActivity(intent);
+                }
+            });
+        }
+
+        View layoutTrashAutoDelete = findViewById(R.id.layoutTrashAutoDelete);
+        if (layoutTrashAutoDelete != null) {
+            layoutTrashAutoDelete.setOnClickListener(new View.OnClickListener() {
+                @Override public void onClick(View v) {
+                    showTrashAutoDeleteDialog();
+                }
+            });
+        }
+
+        View layoutEmptyTrash = findViewById(R.id.layoutEmptyTrash);
+        if (layoutEmptyTrash != null) {
+            layoutEmptyTrash.setOnClickListener(new View.OnClickListener() {
+                @Override public void onClick(View v) {
+                    showEmptyTrashDialog();
                 }
             });
         }
@@ -164,8 +199,8 @@ public class SettingsActivity extends AppCompatActivity {
             });
         }
 
-        // Notes count
-        updateNotesCount();
+        // Update counts
+        updateCounts();
     }
 
     private void loadSettings() {
@@ -174,7 +209,8 @@ public class SettingsActivity extends AppCompatActivity {
         boolean vibrate = preferences.getBoolean(KEY_NOTIFICATION_VIBRATE, true);
         String sortOrder = preferences.getString(KEY_SORT_ORDER, "date_desc");
         int defaultReminder = preferences.getInt(KEY_DEFAULT_REMINDER, 0);
-        boolean time24h = preferences.getBoolean(KEY_TIME_24H, true); // NEW default 24h
+        boolean time24h = preferences.getBoolean(KEY_TIME_24H, true);
+        int trashDays = preferences.getInt(KEY_TRASH_AUTO_DELETE_DAYS, 30); // NEW
 
         switchDarkMode.setChecked(darkMode);
         switchSound.setChecked(sound);
@@ -194,6 +230,75 @@ public class SettingsActivity extends AppCompatActivity {
         if (textDefaultReminder != null) {
             textDefaultReminder.setText(defaultReminder == 0 ? "Не установлено" : defaultReminder + " мин");
         }
+
+        // NEW: Trash auto-delete label
+        if (textTrashAutoDelete != null) {
+            if (trashDays == 0) {
+                textTrashAutoDelete.setText("Никогда");
+            } else {
+                textTrashAutoDelete.setText(trashDays + " дней");
+            }
+        }
+    }
+
+    // NEW: Trash auto-delete dialog
+    private void showTrashAutoDeleteDialog() {
+        String[] options = {"Никогда", "7 дней", "30 дней", "60 дней", "90 дней"};
+        int[] values = {0, 7, 30, 60, 90};
+        int currentValue = preferences.getInt(KEY_TRASH_AUTO_DELETE_DAYS, 30);
+        int checkedItem = 2; // Default to 30 days
+        for (int i = 0; i < values.length; i++) {
+            if (values[i] == currentValue) { checkedItem = i; break; }
+        }
+
+        new AlertDialog.Builder(this)
+                .setTitle("Автоматическое удаление из корзины")
+                .setMessage("Через сколько дней удаленные заметки будут удалены навсегда?")
+                .setSingleChoiceItems(options, checkedItem, new DialogInterface.OnClickListener() {
+                    @Override public void onClick(DialogInterface dialog, int which) {
+                        preferences.edit().putInt(KEY_TRASH_AUTO_DELETE_DAYS, values[which]).apply();
+                        if (textTrashAutoDelete != null) {
+                            textTrashAutoDelete.setText(options[which]);
+                        }
+
+                        // Perform cleanup now if a time limit is set
+                        if (values[which] > 0) {
+                            databaseHelper.cleanupOldTrashNotes(values[which]);
+                            updateCounts();
+                            Toast.makeText(SettingsActivity.this,
+                                    "Настройка сохранена. Старые заметки очищены.", Toast.LENGTH_SHORT).show();
+                        } else {
+                            Toast.makeText(SettingsActivity.this,
+                                    "Автоудаление отключено", Toast.LENGTH_SHORT).show();
+                        }
+
+                        dialog.dismiss();
+                    }
+                })
+                .setNegativeButton("Отмена", null)
+                .show();
+    }
+
+    // NEW: Empty trash dialog from settings
+    private void showEmptyTrashDialog() {
+        int trashCount = databaseHelper.getTrashCount();
+        if (trashCount == 0) {
+            Toast.makeText(this, "Корзина уже пуста", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        new AlertDialog.Builder(this)
+                .setTitle("Очистить корзину?")
+                .setMessage("В корзине " + trashCount + " заметок. Все они будут удалены навсегда. Это действие нельзя отменить.")
+                .setPositiveButton("Очистить", new DialogInterface.OnClickListener() {
+                    @Override public void onClick(DialogInterface dialog, int which) {
+                        databaseHelper.emptyTrash();
+                        updateCounts();
+                        Toast.makeText(SettingsActivity.this, "Корзина очищена", Toast.LENGTH_SHORT).show();
+                    }
+                })
+                .setNegativeButton("Отмена", null)
+                .show();
     }
 
     private void showSortOrderDialog() {
@@ -250,12 +355,12 @@ public class SettingsActivity extends AppCompatActivity {
     private void showClearAllDialog() {
         new AlertDialog.Builder(this)
                 .setTitle("Удалить все заметки?")
-                .setMessage("Это действие удалит все заметки безвозвратно. Продолжить?")
-                .setPositiveButton("Удалить", new DialogInterface.OnClickListener() {
+                .setMessage("Это действие переместит все заметки в корзину. Продолжить?")
+                .setPositiveButton("Переместить в корзину", new DialogInterface.OnClickListener() {
                     @Override public void onClick(DialogInterface dialog, int which) {
-                        databaseHelper.deleteAllNotes();
-                        updateNotesCount();
-                        Toast.makeText(SettingsActivity.this, "Все заметки удалены", Toast.LENGTH_SHORT).show();
+                        databaseHelper.deleteAllNotes(); // This now moves to trash instead of permanent delete
+                        updateCounts();
+                        Toast.makeText(SettingsActivity.this, "Все заметки перемещены в корзину", Toast.LENGTH_SHORT).show();
                     }
                 })
                 .setNegativeButton("Отмена", null)
@@ -265,16 +370,29 @@ public class SettingsActivity extends AppCompatActivity {
     private void showAboutDialog() {
         new AlertDialog.Builder(this)
                 .setTitle("О приложении")
-                .setMessage("MindStack v1.0\n\nПростое и удобное приложение для создания заметок с напоминаниями.\n\n© 2024 Example Company")
+                .setMessage("MindStack v1.0\n\nПростое и удобное приложение для создания заметок с напоминаниями и корзиной.\n\n© 2024 Example Company")
                 .setPositiveButton("OK", null)
                 .show();
     }
 
-    private void updateNotesCount() {
-        int count = databaseHelper.getNotesCount();
+    // NEW: Update both notes and trash counts
+    private void updateCounts() {
+        int notesCount = databaseHelper.getNotesCount();
+        int trashCount = databaseHelper.getTrashCount();
+
         if (textNotesCount != null) {
-            textNotesCount.setText("Всего заметок: " + count);
+            textNotesCount.setText("Всего заметок: " + notesCount);
         }
+
+        if (textTrashCount != null) {
+            textTrashCount.setText("В корзине: " + trashCount);
+        }
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        updateCounts(); // Refresh counts when returning to settings
     }
 
     @Override

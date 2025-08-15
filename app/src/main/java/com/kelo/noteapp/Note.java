@@ -14,14 +14,20 @@ public class Note implements Serializable {
     // Repeat days bitmask (Mon=1<<0 ... Sun=1<<6)
     private int repeatDays;
 
-    // NEW: category (work, personal, family, errand, other)
+    // Category (work, personal, family, errand, other)
     private String category;
+
+    // NEW: Trash functionality
+    private boolean isDeleted;
+    private long deletedAt;
 
     public Note() {
         this.isCompleted = false;
         this.isPinned = false;
         this.repeatDays = 0;
         this.category = "personal"; // default
+        this.isDeleted = false;
+        this.deletedAt = 0;
     }
 
     // Getters
@@ -34,6 +40,8 @@ public class Note implements Serializable {
     public boolean isPinned() { return isPinned; }
     public int getRepeatDays() { return repeatDays; }
     public String getCategory() { return category; }
+    public boolean isDeleted() { return isDeleted; }
+    public long getDeletedAt() { return deletedAt; }
 
     // Setters
     public void setId(int id) { this.id = id; }
@@ -45,6 +53,8 @@ public class Note implements Serializable {
     public void setPinned(boolean pinned) { isPinned = pinned; }
     public void setRepeatDays(int repeatDays) { this.repeatDays = repeatDays; }
     public void setCategory(String category) { this.category = category; }
+    public void setDeleted(boolean deleted) { isDeleted = deleted; }
+    public void setDeletedAt(long deletedAt) { this.deletedAt = deletedAt; }
 
     // Helpers
     public boolean hasReminder() { return reminderTime > 0; }

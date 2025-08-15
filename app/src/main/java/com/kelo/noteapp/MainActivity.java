@@ -129,6 +129,9 @@ public class MainActivity extends AppCompatActivity implements NoteAdapter.OnNot
                 startActivityForResult(intent, ADD_NOTE_REQUEST);
             }
         });
+
+        // Perform auto-cleanup of old trash on app start
+        performTrashCleanup();
     }
 
     private void initializeViews() {
@@ -149,6 +152,16 @@ public class MainActivity extends AppCompatActivity implements NoteAdapter.OnNot
 
         // Common
         fabAdd = findViewById(R.id.fabAdd);
+    }
+
+    // NEW: Auto-cleanup old trash notes
+    private void performTrashCleanup() {
+        SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+        int trashDays = prefs.getInt("trash_auto_delete_days", 30); // Default 30 days
+
+        if (trashDays > 0) {
+            databaseHelper.cleanupOldTrashNotes(trashDays);
+        }
     }
 
     @SuppressLint("UnspecifiedRegisterReceiverFlag")
@@ -508,8 +521,8 @@ public class MainActivity extends AppCompatActivity implements NoteAdapter.OnNot
             NotificationReceiver.cancelNotification(this, note.getId());
         }
 
-        // Delete from database
-        databaseHelper.deleteNote(note.getId());
+        // CHANGED: Move to trash instead of permanent delete
+        databaseHelper.moveToTrash(note.getId());
 
         // Update the list
         if (isCalendarView && selectedDateAdapter != null) {
@@ -529,6 +542,27 @@ public class MainActivity extends AppCompatActivity implements NoteAdapter.OnNot
                 emptyView.setVisibility(View.VISIBLE);
             }
         }
+
+        // NEW: Show undo option for trash
+        Snackbar.make(recyclerView != null ? recyclerView : fabAdd, "Заметка перемещена в корзину", Snackbar.LENGTH_LONG)
+                .setAction("ОТМЕНИТЬ", v -> {
+                    // Restore from trash
+                    databaseHelper.restoreFromTrash(note.getId());
+
+                    // Refresh the list
+                    if (isCalendarView) {
+                        updateCalendarDisplay();
+                        // Re-trigger date click if applicable
+                    } else {
+                        loadNotes();
+                    }
+
+                    // Reschedule reminder if exists
+                    if (note.getReminderTime() > 0) {
+                        scheduleNotification(note);
+                    }
+                })
+                .show();
 
         updateWidget();
     }
@@ -769,14 +803,15 @@ public class MainActivity extends AppCompatActivity implements NoteAdapter.OnNot
                         Note note = notesList.get(pos);
 
                         if (direction == ItemTouchHelper.LEFT) {
-                            // Delete with UNDO
+                            // CHANGED: Move to trash with UNDO instead of permanent delete
                             // cancel reminder if any
                             if (note.getReminderTime() > 0) {
                                 cancelNotification(note.getId());
                                 NotificationReceiver.cancelNotification(MainActivity.this, note.getId());
                             }
-                            // remove from DB & list
-                            databaseHelper.deleteNote(note.getId());
+
+                            // move to trash
+                            databaseHelper.moveToTrash(note.getId());
                             notesList.remove(pos);
                             noteAdapter.notifyItemRemoved(pos);
 
@@ -788,10 +823,10 @@ public class MainActivity extends AppCompatActivity implements NoteAdapter.OnNot
 
                             updateWidget();
 
-                            Snackbar.make(MainActivity.this.recyclerView, "Note deleted", Snackbar.LENGTH_LONG)
-                                    .setAction("UNDO", v -> {
-                                        long newId = databaseHelper.addNote(note);
-                                        note.setId((int) newId);
+                            Snackbar.make(MainActivity.this.recyclerView, "Заметка перемещена в корзину", Snackbar.LENGTH_LONG)
+                                    .setAction("ОТМЕНИТЬ", v -> {
+                                        // Restore from trash
+                                        databaseHelper.restoreFromTrash(note.getId());
                                         notesList.add(pos, note);
                                         noteAdapter.notifyItemInserted(pos);
 
