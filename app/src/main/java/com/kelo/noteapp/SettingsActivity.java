@@ -264,7 +264,7 @@ public class SettingsActivity extends AppCompatActivity {
         }
     }
 
-    // AUTO-DELETE DIALOG - Alternative approach that will definitely work!
+    // AUTO-DELETE DIALOG - FIXED VERSION THAT WILL DEFINITELY WORK!
     private void showTrashAutoDeleteDialog() {
         final String[] options = {"Никогда", "7 дней", "30 дней", "60 дней", "90 дней"};
         final int[] values = {0, 7, 30, 60, 90};
@@ -272,6 +272,7 @@ public class SettingsActivity extends AppCompatActivity {
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
         builder.setTitle("Автоматическое удаление из корзины");
 
+        // Simple list selection instead of single choice items
         builder.setItems(options, new DialogInterface.OnClickListener() {
             @Override
             public void onClick(DialogInterface dialog, int which) {
@@ -302,7 +303,9 @@ public class SettingsActivity extends AppCompatActivity {
         });
 
         builder.setNegativeButton("Отмена", null);
-        builder.show();
+
+        AlertDialog dialog = builder.create();
+        dialog.show();
     }
 
     // Empty trash dialog from settings
@@ -421,7 +424,11 @@ public class SettingsActivity extends AppCompatActivity {
     private void showAboutDialog() {
         new AlertDialog.Builder(this)
                 .setTitle("О приложении")
-                .setMessage("NoteApp v1.0\n\nПростое и удобное приложение для заметок с возможностью категоризации, напоминаний и корзины.")
+                .setMessage("NoteApp v1.0\n\nПростое и удобное приложение для заметок с возможностью категоризации, напоминаний и корзины.\n\n" +
+                        "Особенности:\n" +
+                        "• Напоминания показываются только на ближайшие 7 дней\n" +
+                        "• Автоматическая очистка корзины\n" +
+                        "• Календарный вид заметок")
                 .setPositiveButton("OK", null)
                 .show();
     }

@@ -304,7 +304,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         return count;
     }
 
-    // ===== CALENDAR & REMINDER FUNCTIONALITY =====
+    // ===== CALENDAR & REMINDER FUNCTIONALITY - UPDATED FOR 7-DAY ROLLING WINDOW =====
 
     public List<Note> getNotesForDate(String dateKey) {
         List<Note> list = new ArrayList<>();
@@ -327,6 +327,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         long startTime = startOfDay.getTimeInMillis();
         long endTime = endOfDay.getTimeInMillis();
 
+        // Get notes with specific reminders for this date
         String sql = "SELECT * FROM " + TABLE_NOTES +
                 " WHERE " + COLUMN_REMINDER_TIME + " >= ? AND " + COLUMN_REMINDER_TIME + " <= ?" +
                 " AND " + COLUMN_IS_DELETED + " = 0" +
@@ -339,6 +340,10 @@ public class DatabaseHelper extends SQLiteOpenHelper {
             } while (c.moveToNext());
         }
         c.close();
+
+        // Add recurring notes that should appear on this date
+        addRecurringNotesForDate(list, dateKey, db);
+
         db.close();
         return list;
     }
@@ -349,31 +354,124 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         return getNotesForDate(dateKey);
     }
 
-    public Set<String> getRecurringDates(int startYear, int startMonth, int endYear, int endMonth) {
-        Set<String> recurringDates = new HashSet<>();
-        SQLiteDatabase db = this.getReadableDatabase();
+    private void addRecurringNotesForDate(List<Note> list, String dateKey, SQLiteDatabase db) {
+        // Parse the target date
+        String[] parts = dateKey.split("-");
+        int targetYear = Integer.parseInt(parts[0]);
+        int targetMonth = Integer.parseInt(parts[1]) - 1; // 0-based
+        int targetDay = Integer.parseInt(parts[2]);
 
-        String sql = "SELECT " + COLUMN_REMINDER_TIME + ", " + COLUMN_REPEAT_DAYS +
-                " FROM " + TABLE_NOTES +
+        Calendar targetDate = Calendar.getInstance();
+        targetDate.set(targetYear, targetMonth, targetDay);
+        int targetDayOfWeek = targetDate.get(Calendar.DAY_OF_WEEK);
+
+        // Get today's date for 7-day window check
+        Calendar today = Calendar.getInstance();
+        today.set(Calendar.HOUR_OF_DAY, 0);
+        today.set(Calendar.MINUTE, 0);
+        today.set(Calendar.SECOND, 0);
+        today.set(Calendar.MILLISECOND, 0);
+
+        // Calculate 7 days from today
+        Calendar sevenDaysFromToday = (Calendar) today.clone();
+        sevenDaysFromToday.add(Calendar.DAY_OF_MONTH, 7);
+
+        // Only show recurring notes if target date is within the next 7 days
+        if (targetDate.before(today) || targetDate.after(sevenDaysFromToday)) {
+            return; // Don't show recurring notes outside the 7-day window
+        }
+
+        String sql = "SELECT * FROM " + TABLE_NOTES +
                 " WHERE " + COLUMN_REPEAT_DAYS + " > 0 AND " + COLUMN_IS_DELETED + " = 0";
 
         Cursor c = db.rawQuery(sql, null);
         if (c.moveToFirst()) {
             do {
-                long reminderTime = c.getLong(0);
-                int repeatDays = c.getInt(1);
+                int repeatDays = c.getInt(c.getColumnIndexOrThrow(COLUMN_REPEAT_DAYS));
+                int bitIndex = convertDayOfWeekToBitIndex(targetDayOfWeek);
 
-                if (reminderTime > 0 && repeatDays > 0) {
+                // Check if this recurring note should appear on the target day
+                if ((repeatDays & (1 << bitIndex)) != 0) {
+                    Note recurringNote = readNoteFromCursor(c);
+                    // Mark as recurring so UI can show it differently if needed
+                    list.add(recurringNote);
+                }
+            } while (c.moveToNext());
+        }
+        c.close();
+    }
+
+    public Map<String, Integer> getNotesCountForMonth(int year, int month) {
+        Map<String, Integer> dateCountMap = new HashMap<>();
+        SQLiteDatabase db = this.getReadableDatabase();
+
+        // Calculate start and end of month
+        Calendar startOfMonth = Calendar.getInstance();
+        startOfMonth.set(year, month, 1, 0, 0, 0);
+        startOfMonth.set(Calendar.MILLISECOND, 0);
+
+        Calendar endOfMonth = Calendar.getInstance();
+        endOfMonth.set(year, month + 1, 1, 0, 0, 0);
+        endOfMonth.add(Calendar.MILLISECOND, -1);
+
+        long startTime = startOfMonth.getTimeInMillis();
+        long endTime = endOfMonth.getTimeInMillis();
+
+        // Query notes with reminders in this month
+        String sql = "SELECT " + COLUMN_REMINDER_TIME + " FROM " + TABLE_NOTES +
+                " WHERE " + COLUMN_REMINDER_TIME + " >= ? AND " + COLUMN_REMINDER_TIME + " <= ?" +
+                " AND " + COLUMN_IS_DELETED + " = 0";
+
+        Cursor c = db.rawQuery(sql, new String[]{String.valueOf(startTime), String.valueOf(endTime)});
+        if (c.moveToFirst()) {
+            do {
+                long reminderTime = c.getLong(0);
+                if (reminderTime > 0) {
                     Calendar reminderCal = Calendar.getInstance();
                     reminderCal.setTimeInMillis(reminderTime);
 
-                    Calendar checkDate = Calendar.getInstance();
-                    checkDate.set(startYear, startMonth, 1, 0, 0, 0);
+                    String dateKey = String.format("%04d-%02d-%02d",
+                            reminderCal.get(Calendar.YEAR),
+                            reminderCal.get(Calendar.MONTH) + 1,
+                            reminderCal.get(Calendar.DAY_OF_MONTH));
 
-                    Calendar endDate = Calendar.getInstance();
-                    endDate.set(endYear, endMonth + 1, 1, 0, 0, 0);
+                    dateCountMap.put(dateKey, dateCountMap.getOrDefault(dateKey, 0) + 1);
+                }
+            } while (c.moveToNext());
+        }
+        c.close();
 
-                    while (checkDate.before(endDate)) {
+        // Add recurring notes (ONLY for the next 7 days from today)
+        addRecurringNotesCount(dateCountMap, year, month, db);
+
+        db.close();
+        return dateCountMap;
+    }
+
+    private void addRecurringNotesCount(Map<String, Integer> dateCountMap, int year, int month, SQLiteDatabase db) {
+        Calendar today = Calendar.getInstance();
+        today.set(Calendar.HOUR_OF_DAY, 0);
+        today.set(Calendar.MINUTE, 0);
+        today.set(Calendar.SECOND, 0);
+        today.set(Calendar.MILLISECOND, 0);
+
+        // Only show recurring notes for the next 7 days
+        Calendar sevenDaysFromToday = (Calendar) today.clone();
+        sevenDaysFromToday.add(Calendar.DAY_OF_MONTH, 7);
+
+        String sql = "SELECT " + COLUMN_REPEAT_DAYS + " FROM " + TABLE_NOTES +
+                " WHERE " + COLUMN_REPEAT_DAYS + " > 0 AND " + COLUMN_IS_DELETED + " = 0";
+
+        Cursor c = db.rawQuery(sql, null);
+        if (c.moveToFirst()) {
+            do {
+                int repeatDays = c.getInt(0);
+
+                // Check each day in the 7-day window
+                Calendar checkDate = (Calendar) today.clone();
+                for (int i = 0; i < 7; i++) {
+                    // Only add if the date is in the requested month
+                    if (checkDate.get(Calendar.YEAR) == year && checkDate.get(Calendar.MONTH) == month) {
                         int dayOfWeek = checkDate.get(Calendar.DAY_OF_WEEK);
                         int bitIndex = convertDayOfWeekToBitIndex(dayOfWeek);
 
@@ -382,10 +480,62 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                                     checkDate.get(Calendar.YEAR),
                                     checkDate.get(Calendar.MONTH) + 1,
                                     checkDate.get(Calendar.DAY_OF_MONTH));
+
+                            dateCountMap.put(dateKey, dateCountMap.getOrDefault(dateKey, 0) + 1);
+                        }
+                    }
+                    checkDate.add(Calendar.DAY_OF_MONTH, 1);
+                }
+            } while (c.moveToNext());
+        }
+        c.close();
+    }
+
+    public Set<String> getRecurringDates(int startYear, int startMonth, int endYear, int endMonth) {
+        Set<String> recurringDates = new HashSet<>();
+        SQLiteDatabase db = this.getReadableDatabase();
+
+        Calendar today = Calendar.getInstance();
+        today.set(Calendar.HOUR_OF_DAY, 0);
+        today.set(Calendar.MINUTE, 0);
+        today.set(Calendar.SECOND, 0);
+        today.set(Calendar.MILLISECOND, 0);
+
+        // Only show recurring notes for the next 7 days
+        Calendar sevenDaysFromToday = (Calendar) today.clone();
+        sevenDaysFromToday.add(Calendar.DAY_OF_MONTH, 7);
+
+        String sql = "SELECT " + COLUMN_REPEAT_DAYS +
+                " FROM " + TABLE_NOTES +
+                " WHERE " + COLUMN_REPEAT_DAYS + " > 0 AND " + COLUMN_IS_DELETED + " = 0";
+
+        Cursor c = db.rawQuery(sql, null);
+        if (c.moveToFirst()) {
+            do {
+                int repeatDays = c.getInt(0);
+
+                // Check each day in the 7-day window
+                Calendar checkDate = (Calendar) today.clone();
+                for (int i = 0; i < 7; i++) {
+                    int dayOfWeek = checkDate.get(Calendar.DAY_OF_WEEK);
+                    int bitIndex = convertDayOfWeekToBitIndex(dayOfWeek);
+
+                    if ((repeatDays & (1 << bitIndex)) != 0) {
+                        // Only add if the date is within the requested month range
+                        int checkYear = checkDate.get(Calendar.YEAR);
+                        int checkMonth = checkDate.get(Calendar.MONTH);
+
+                        if ((checkYear > startYear || (checkYear == startYear && checkMonth >= startMonth)) &&
+                                (checkYear < endYear || (checkYear == endYear && checkMonth <= endMonth))) {
+
+                            String dateKey = String.format("%04d-%02d-%02d",
+                                    checkYear,
+                                    checkMonth + 1,
+                                    checkDate.get(Calendar.DAY_OF_MONTH));
                             recurringDates.add(dateKey);
                         }
-                        checkDate.add(Calendar.DAY_OF_MONTH, 1);
                     }
+                    checkDate.add(Calendar.DAY_OF_MONTH, 1);
                 }
             } while (c.moveToNext());
         }
@@ -433,56 +583,6 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         c.close();
         db.close();
         return stats;
-    }
-
-    public Map<String, Integer> getNotesCountForMonth(int year, int month) {
-        Map<String, Integer> dateCountMap = new HashMap<>();
-        SQLiteDatabase db = this.getReadableDatabase();
-
-        // Calculate start and end of month
-        Calendar startOfMonth = Calendar.getInstance();
-        startOfMonth.set(year, month, 1, 0, 0, 0);
-        startOfMonth.set(Calendar.MILLISECOND, 0);
-
-        Calendar endOfMonth = Calendar.getInstance();
-        endOfMonth.set(year, month + 1, 1, 0, 0, 0);
-        endOfMonth.add(Calendar.MILLISECOND, -1);
-
-        long startTime = startOfMonth.getTimeInMillis();
-        long endTime = endOfMonth.getTimeInMillis();
-
-        // Query notes with reminders in this month
-        String sql = "SELECT " + COLUMN_REMINDER_TIME + " FROM " + TABLE_NOTES +
-                " WHERE " + COLUMN_REMINDER_TIME + " >= ? AND " + COLUMN_REMINDER_TIME + " <= ?" +
-                " AND " + COLUMN_IS_DELETED + " = 0";
-
-        Cursor c = db.rawQuery(sql, new String[]{String.valueOf(startTime), String.valueOf(endTime)});
-        if (c.moveToFirst()) {
-            do {
-                long reminderTime = c.getLong(0);
-                if (reminderTime > 0) {
-                    Calendar reminderCal = Calendar.getInstance();
-                    reminderCal.setTimeInMillis(reminderTime);
-
-                    String dateKey = String.format("%04d-%02d-%02d",
-                            reminderCal.get(Calendar.YEAR),
-                            reminderCal.get(Calendar.MONTH) + 1,
-                            reminderCal.get(Calendar.DAY_OF_MONTH));
-
-                    dateCountMap.put(dateKey, dateCountMap.getOrDefault(dateKey, 0) + 1);
-                }
-            } while (c.moveToNext());
-        }
-        c.close();
-
-        // Also include recurring notes
-        Set<String> recurringDates = getRecurringDates(year, month, year, month);
-        for (String dateKey : recurringDates) {
-            dateCountMap.put(dateKey, dateCountMap.getOrDefault(dateKey, 0) + 1);
-        }
-
-        db.close();
-        return dateCountMap;
     }
 
     // ===== INTERNAL HELPER METHODS =====

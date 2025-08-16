@@ -1,49 +1,48 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
     android:background="@color/background">
 
-    <!-- Month Navigation Header -->
+    <!-- Calendar Header -->
     <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="56dp"
+        android:layout_height="wrap_content"
         android:orientation="horizontal"
-        android:gravity="center_vertical"
-        android:paddingHorizontal="16dp"
-        android:background="?attr/colorSurface"
-        android:elevation="2dp">
+        android:padding="16dp"
+        android:gravity="center_vertical">
 
         <ImageButton
             android:id="@+id/btnPrevMonth"
             android:layout_width="48dp"
             android:layout_height="48dp"
-            android:background="?attr/selectableItemBackgroundBorderless"
             android:src="@drawable/ic_chevron_left"
-            android:tint="@color/text_primary"
-            android:contentDescription="Previous month" />
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="Предыдущий месяц"
+            android:tint="@color/text_primary" />
+
 
         <TextView
             android:id="@+id/textMonthYear"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:gravity="center"
-            android:textSize="18sp"
-            android:textStyle="bold"
+            android:text="Август 2025"
             android:textColor="@color/text_primary"
-            tools:text="December 2024" />
+            android:textSize="20sp"
+            android:textStyle="bold"
+            android:gravity="center" />
 
         <ImageButton
             android:id="@+id/btnNextMonth"
             android:layout_width="48dp"
             android:layout_height="48dp"
-            android:background="?attr/selectableItemBackgroundBorderless"
             android:src="@drawable/ic_chevron_right"
-            android:tint="@color/text_primary"
-            android:contentDescription="Next month" />
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="Следующий месяц"
+            android:tint="@color/text_primary" />
 
     </LinearLayout>
     <TextView
@@ -56,35 +55,82 @@
         android:gravity="center"
         android:paddingVertical="4dp"
         android:background="@color/chip_background"/>
-    <!-- Week Days Header -->
+    <!-- Days of Week Header -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
-        android:paddingVertical="8dp"
-        android:background="@color/chip_background">
+        android:paddingHorizontal="8dp">
 
         <TextView
-            style="@style/CalendarWeekHeader"
-            android:text="Пн" />
+            android:layout_width="0dp"
+            android:layout_height="40dp"
+            android:layout_weight="1"
+            android:text="ПН"
+            android:textColor="@color/text_secondary"
+            android:textSize="12sp"
+            android:textStyle="bold"
+            android:gravity="center" />
+
         <TextView
-            style="@style/CalendarWeekHeader"
-            android:text="Вт" />
+            android:layout_width="0dp"
+            android:layout_height="40dp"
+            android:layout_weight="1"
+            android:text="ВТ"
+            android:textColor="@color/text_secondary"
+            android:textSize="12sp"
+            android:textStyle="bold"
+            android:gravity="center" />
+
         <TextView
-            style="@style/CalendarWeekHeader"
-            android:text="Ср" />
+            android:layout_width="0dp"
+            android:layout_height="40dp"
+            android:layout_weight="1"
+            android:text="СР"
+            android:textColor="@color/text_secondary"
+            android:textSize="12sp"
+            android:textStyle="bold"
+            android:gravity="center" />
+
         <TextView
-            style="@style/CalendarWeekHeader"
-            android:text="Чт" />
+            android:layout_width="0dp"
+            android:layout_height="40dp"
+            android:layout_weight="1"
+            android:text="ЧТ"
+            android:textColor="@color/text_secondary"
+            android:textSize="12sp"
+            android:textStyle="bold"
+            android:gravity="center" />
+
         <TextView
-            style="@style/CalendarWeekHeader"
-            android:text="Пт" />
+            android:layout_width="0dp"
+            android:layout_height="40dp"
+            android:layout_weight="1"
+            android:text="ПТ"
+            android:textColor="@color/text_secondary"
+            android:textSize="12sp"
+            android:textStyle="bold"
+            android:gravity="center" />
+
         <TextView
-            style="@style/CalendarWeekHeader"
-            android:text="Сб" />
+            android:layout_width="0dp"
+            android:layout_height="40dp"
+            android:layout_weight="1"
+            android:text="СБ"
+            android:textColor="@color/text_secondary"
+            android:textSize="12sp"
+            android:textStyle="bold"
+            android:gravity="center" />
+
         <TextView
-            style="@style/CalendarWeekHeader"
-            android:text="Вс" />
+            android:layout_width="0dp"
+            android:layout_height="40dp"
+            android:layout_weight="1"
+            android:text="ВС"
+            android:textColor="@color/text_secondary"
+            android:textSize="12sp"
+            android:textStyle="bold"
+            android:gravity="center" />
 
     </LinearLayout>
 
@@ -93,48 +139,66 @@
         android:id="@+id/calendarGrid"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:padding="4dp" />
+        android:paddingHorizontal="8dp"
+        android:clipToPadding="false" />
 
-    <!-- Divider -->
     <View
         android:layout_width="match_parent"
         android:layout_height="1dp"
+        android:background="@color/text_tertiary"
         android:layout_marginTop="8dp"
-        android:background="@color/divider_color" />
+        android:layout_marginHorizontal="16dp" />
 
-    <!-- Selected Date Label -->
-    <TextView
-        android:id="@+id/textSelectedDate"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:padding="16dp"
-        android:textSize="16sp"
-        android:textStyle="bold"
-        android:textColor="@color/colorPrimary"
-        android:visibility="gone"
-        tools:text="Notes for December 15, 2024"
-        tools:visibility="visible" />
-
-    <!-- Notes for selected date -->
-    <androidx.recyclerview.widget.RecyclerView
-        android:id="@+id/selectedDateNotes"
+    <!-- Selected Date Notes Section -->
+    <ScrollView
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
-        android:clipToPadding="false"
-        android:padding="8dp"
-        android:scrollbars="vertical" />
+        android:fillViewport="true">
 
-    <!-- Empty state for selected date -->
-    <TextView
-        android:id="@+id/emptyDateView"
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1"
-        android:gravity="center"
-        android:text="Нет заметок на выбранную дату"
-        android:textColor="@color/text_secondary"
-        android:textSize="16sp"
-        android:visibility="gone" />
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <!-- Selected Date Header -->
+            <TextView
+                android:id="@+id/textSelectedDate"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Заметки за 22 августа 2025"
+                android:textColor="@color/colorAccent"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                android:padding="16dp"
+                android:visibility="gone" />
+
+            <!-- Notes List for Selected Date -->
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/selectedDateNotes"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:nestedScrollingEnabled="false"
+                android:paddingHorizontal="8dp"
+                android:visibility="gone" />
+
+            <!-- Empty State for Selected Date -->
+            <TextView
+                android:id="@+id/emptyDateView"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:layout_marginTop="32dp"
+                android:text="Нет заметок на выбранную дату"
+                android:textColor="@color/text_secondary"
+                android:textSize="16sp"
+                android:gravity="center"
+                android:drawableTop="@drawable/ic_empty_notes"
+                android:drawablePadding="16dp"
+                android:visibility="gone" />
+
+        </LinearLayout>
+
+    </ScrollView>
 
 </LinearLayout>

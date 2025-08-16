@@ -57,4 +57,18 @@
     <color name="state_pressed">#E3F2FD</color>         <!-- Pressed state background (light) -->
     <color name="state_focused">#1976D2</color>         <!-- Focused state outline (light) -->
     <color name="state_selected">#BBDEFB</color>        <!-- Selected state background (light) -->
+
+    <!-- Calendar specific colors -->
+    <color name="calendar_day_pressed">#1A000000</color>
+    <color name="text_on_primary">#FFFFFF</color>
+    <color name="text_quaternary">#40FFFFFF</color>
+
+    <!-- Indicator colors for different types of reminders -->
+    <color name="note_indicator_color">#FF5722</color>          <!-- Orange for specific date reminders -->
+    <color name="recurring_indicator_color">#2196F3</color>     <!-- Blue for daily recurring reminders -->
+    <color name="mixed_indicator_color">#9C27B0</color>         <!-- Purple for both types -->
+
+
+
+
 </resources>

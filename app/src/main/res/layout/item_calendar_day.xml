@@ -1,36 +1,28 @@
 <?xml version="1.0" encoding="utf-8"?>
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
-    android:layout_height="48dp"
+    android:layout_height="52dp"
+    android:layout_margin="2dp"
     android:clickable="true"
     android:focusable="true"
     android:foreground="?attr/selectableItemBackground">
 
-    <LinearLayout
+    <TextView
+        android:id="@+id/dayNumber"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:orientation="vertical"
-        android:gravity="center">
+        android:gravity="center"
+        android:textSize="14sp"
+        android:textColor="@color/text_primary"
+        android:background="@drawable/calendar_day_background" />
 
-        <TextView
-            android:id="@+id/dayNumber"
-            android:layout_width="32dp"
-            android:layout_height="32dp"
-            android:gravity="center"
-            android:textSize="14sp"
-            android:textColor="@color/text_primary"
-            android:background="@drawable/calendar_day_selector"
-            tools:text="15" />
-
-        <View
-            android:id="@+id/noteIndicator"
-            android:layout_width="6dp"
-            android:layout_height="6dp"
-            android:layout_marginTop="2dp"
-            android:background="@drawable/note_indicator_dot"
-            android:visibility="gone" />
-
-    </LinearLayout>
+    <View
+        android:id="@+id/noteIndicator"
+        android:layout_width="6dp"
+        android:layout_height="6dp"
+        android:layout_gravity="top|end"
+        android:layout_margin="4dp"
+        android:background="@drawable/note_indicator_dot"
+        android:visibility="gone" />
 
 </FrameLayout>

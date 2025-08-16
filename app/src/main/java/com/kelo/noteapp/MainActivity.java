@@ -7,6 +7,7 @@ import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.appwidget.AppWidgetManager;
+import android.appwidget.AppWidgetProvider;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
@@ -124,23 +125,23 @@ public class MainActivity extends AppCompatActivity implements NoteAdapter.OnNot
         // Обработчик кнопки добавления
         fabAdd.setOnClickListener(new View.OnClickListener() {
             @Override
-            public void onClick(View v) {
+            public void onClick(View view) {
                 Intent intent = new Intent(MainActivity.this, AddEditNoteActivity.class);
                 startActivityForResult(intent, ADD_NOTE_REQUEST);
             }
         });
 
-        // Perform auto-cleanup of old trash on app start
-        performTrashCleanup();
+        // Handle intent from notification
+        handleNotificationIntent(getIntent());
     }
 
     private void initializeViews() {
-        // List view
+        // List view components
         listViewContainer = findViewById(R.id.listViewContainer);
         recyclerView = findViewById(R.id.recyclerView);
         emptyView = findViewById(R.id.emptyView);
 
-        // Calendar view
+        // Calendar view components
         calendarViewContainer = findViewById(R.id.calendarViewContainer);
         calendarGrid = findViewById(R.id.calendarGrid);
         btnPrevMonth = findViewById(R.id.btnPrevMonth);
@@ -150,71 +151,27 @@ public class MainActivity extends AppCompatActivity implements NoteAdapter.OnNot
         selectedDateNotes = findViewById(R.id.selectedDateNotes);
         emptyDateView = findViewById(R.id.emptyDateView);
 
-        // Common
+        // Common components
         fabAdd = findViewById(R.id.fabAdd);
-    }
 
-    // NEW: Auto-cleanup old trash notes
-    private void performTrashCleanup() {
-        SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
-        int trashDays = prefs.getInt("trash_auto_delete_days", 30); // Default 30 days
-
-        if (trashDays > 0) {
-            databaseHelper.cleanupOldTrashNotes(trashDays);
-        }
-    }
-
-    @SuppressLint("UnspecifiedRegisterReceiverFlag")
-    private void setupBroadcastReceiver() {
-        noteUpdateReceiver = new BroadcastReceiver() {
-            @Override
-            public void onReceive(Context context, Intent intent) {
-                if ("com.kelo.noteapp.NOTE_UPDATED".equals(intent.getAction())) {
-                    int noteId = intent.getIntExtra("note_id", -1);
-                    String action = intent.getStringExtra("action");
-
-                    if ("completed".equals(action)) {
-                        // Refresh the list to show completed status
-                        if (isCalendarView) {
-                            updateCalendarDisplay();
-                        } else {
-                            loadNotes();
-                        }
-
-                        // Show feedback to user
-                        if (fabAdd != null) {
-                            Snackbar.make(fabAdd, "Задача выполнена из уведомления", Snackbar.LENGTH_SHORT).show();
-                        }
-                    } else if ("snoozed".equals(action)) {
-                        // Show feedback that note was snoozed
-                        if (fabAdd != null) {
-                            Snackbar.make(fabAdd, "Напоминание отложено на 10 минут", Snackbar.LENGTH_SHORT).show();
-                        }
-                    }
-                }
-            }
-        };
-
-        IntentFilter filter = new IntentFilter("com.kelo.noteapp.NOTE_UPDATED");
-
-        // FIX: Add RECEIVER_NOT_EXPORTED flag for Android 13+ compatibility
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            registerReceiver(noteUpdateReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
-        } else {
-            registerReceiver(noteUpdateReceiver, filter);
-        }
+        // Initialize calendar
+        currentCalendar = Calendar.getInstance();
     }
 
     private void setupListView() {
         recyclerView.setLayoutManager(new LinearLayoutManager(this));
         recyclerView.setHasFixedSize(true);
-        setupSwipes();
-        loadNotes();
+
+        // Initialize empty list to avoid null pointer
+        notesList = new ArrayList<>();
+        noteAdapter = new NoteAdapter(this, notesList, this);
+        recyclerView.setAdapter(noteAdapter);
+
+        // Add swipe to delete functionality
+        setupSwipeToDelete();
     }
 
     private void setupCalendarView() {
-        currentCalendar = Calendar.getInstance();
-
         // Setup calendar grid
         calendarGrid.setLayoutManager(new GridLayoutManager(this, 7));
         calendarAdapter = new CalendarAdapter(this, this);
@@ -223,7 +180,7 @@ public class MainActivity extends AppCompatActivity implements NoteAdapter.OnNot
         // Setup selected date notes list
         selectedDateNotes.setLayoutManager(new LinearLayoutManager(this));
 
-        // Month navigation
+        // Navigation buttons
         btnPrevMonth.setOnClickListener(v -> {
             currentCalendar.add(Calendar.MONTH, -1);
             updateCalendarDisplay();
@@ -234,6 +191,7 @@ public class MainActivity extends AppCompatActivity implements NoteAdapter.OnNot
             updateCalendarDisplay();
         });
 
+        // Initialize calendar display
         updateCalendarDisplay();
     }
 
@@ -245,10 +203,10 @@ public class MainActivity extends AppCompatActivity implements NoteAdapter.OnNot
         SimpleDateFormat monthFormat = new SimpleDateFormat("MMMM yyyy", new Locale("ru"));
         textMonthYear.setText(monthFormat.format(currentCalendar.getTime()));
 
-        // Get notes count for the month
+        // Get notes count for the month (now includes 7-day rolling window for recurring)
         Map<String, Integer> notesCountMap = databaseHelper.getNotesCountForMonth(year, month);
 
-        // Get recurring reminder dates for the month
+        // Get recurring reminder dates for the month (now limited to 7 days)
         Set<String> recurringDates = databaseHelper.getRecurringDatesForMonth(year, month);
 
         // Update calendar grid with both regular notes and recurring reminders
@@ -269,12 +227,13 @@ public class MainActivity extends AppCompatActivity implements NoteAdapter.OnNot
         textSelectedDate.setText("Заметки за " + dateFormat.format(selectedDate.getTime()));
         textSelectedDate.setVisibility(View.VISIBLE);
 
-        // Load notes for selected date
+        // Load notes for selected date (includes recurring notes within 7-day window)
         List<Note> dateNotes = databaseHelper.getNotesForDate(year, month, day);
 
         if (dateNotes.isEmpty()) {
             selectedDateNotes.setVisibility(View.GONE);
             emptyDateView.setVisibility(View.VISIBLE);
+            emptyDateView.setText("Нет заметок на выбранную дату");
         } else {
             emptyDateView.setVisibility(View.GONE);
             selectedDateNotes.setVisibility(View.VISIBLE);
@@ -305,6 +264,197 @@ public class MainActivity extends AppCompatActivity implements NoteAdapter.OnNot
         // Save preference
         SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
         prefs.edit().putBoolean(PREF_VIEW_MODE, showCalendar).apply();
+    }
+
+    private void setupSwipeToDelete() {
+        ItemTouchHelper itemTouchHelper = new ItemTouchHelper(new ItemTouchHelper.SimpleCallback(0, ItemTouchHelper.LEFT | ItemTouchHelper.RIGHT) {
+            @Override
+            public boolean onMove(RecyclerView recyclerView, RecyclerView.ViewHolder viewHolder, RecyclerView.ViewHolder target) {
+                return false;
+            }
+
+            @Override
+            public void onSwiped(RecyclerView.ViewHolder viewHolder, int direction) {
+                int position = viewHolder.getAdapterPosition();
+                Note note = notesList.get(position);
+
+                // Move to trash instead of permanent delete
+                databaseHelper.moveToTrash(note.getId());
+                notesList.remove(position);
+                noteAdapter.notifyItemRemoved(position);
+
+                // Show undo snackbar
+                Snackbar.make(recyclerView, "Заметка перемещена в корзину", Snackbar.LENGTH_LONG)
+                        .setAction("ОТМЕНИТЬ", v -> {
+                            databaseHelper.restoreFromTrash(note.getId());
+                            notesList.add(position, note);
+                            noteAdapter.notifyItemInserted(position);
+                        })
+                        .show();
+
+                updateEmptyState();
+                updateAppWidget();
+            }
+
+            @Override
+            public void onChildDraw(Canvas c, RecyclerView recyclerView, RecyclerView.ViewHolder viewHolder, float dX, float dY, int actionState, boolean isCurrentlyActive) {
+                if (actionState == ItemTouchHelper.ACTION_STATE_SWIPE) {
+                    View itemView = viewHolder.itemView;
+                    Paint paint = new Paint();
+                    paint.setColor(ContextCompat.getColor(MainActivity.this, R.color.delete_color));
+
+                    // Draw background
+                    if (dX > 0) {
+                        c.drawRect(itemView.getLeft(), itemView.getTop(), dX, itemView.getBottom(), paint);
+                    } else {
+                        c.drawRect(itemView.getRight() + dX, itemView.getTop(), itemView.getRight(), itemView.getBottom(), paint);
+                    }
+
+                    // Draw delete icon
+                    Drawable icon = ContextCompat.getDrawable(MainActivity.this, R.drawable.ic_delete);
+                    if (icon != null) {
+                        int iconMargin = (itemView.getHeight() - icon.getIntrinsicHeight()) / 2;
+                        int iconTop = itemView.getTop() + iconMargin;
+                        int iconBottom = iconTop + icon.getIntrinsicHeight();
+
+                        if (dX > 0) {
+                            int iconLeft = itemView.getLeft() + iconMargin;
+                            int iconRight = iconLeft + icon.getIntrinsicWidth();
+                            icon.setBounds(iconLeft, iconTop, iconRight, iconBottom);
+                        } else {
+                            int iconRight = itemView.getRight() - iconMargin;
+                            int iconLeft = iconRight - icon.getIntrinsicWidth();
+                            icon.setBounds(iconLeft, iconTop, iconRight, iconBottom);
+                        }
+                        icon.setTint(Color.WHITE);
+                        icon.draw(c);
+                    }
+                }
+                super.onChildDraw(c, recyclerView, viewHolder, dX, dY, actionState, isCurrentlyActive);
+            }
+        });
+        itemTouchHelper.attachToRecyclerView(recyclerView);
+    }
+
+
+    private void setupBroadcastReceiver() {
+        noteUpdateReceiver = new BroadcastReceiver() {
+            @Override
+            public void onReceive(Context context, Intent intent) {
+                if ("com.kelo.noteapp.UPDATE_WIDGET".equals(intent.getAction())) {
+                    loadNotes();
+                    updateAppWidget();
+                    if (isCalendarView) {
+                        updateCalendarDisplay();
+                    }
+                }
+            }
+        };
+
+        IntentFilter filter = new IntentFilter("com.kelo.noteapp.UPDATE_WIDGET");
+
+        // Fix for Android 13+ (API 33+): specify export flag
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(noteUpdateReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
+        } else {
+            registerReceiver(noteUpdateReceiver, filter);
+        }
+    }
+
+    private void loadNotes() {
+        notesList.clear();
+        notesList.addAll(databaseHelper.getAllNotes());
+        applySorting();
+        noteAdapter.notifyDataSetChanged();
+        updateEmptyState();
+    }
+
+    private void applySorting() {
+        switch (currentSortMode) {
+            case 1: // Date oldest first
+                Collections.sort(notesList, new Comparator<Note>() {
+                    @Override
+                    public int compare(Note a, Note b) {
+                        if (a.isPinned() != b.isPinned()) return a.isPinned() ? -1 : 1;
+                        if (a.isCompleted() != b.isCompleted()) return a.isCompleted() ? 1 : -1;
+                        return Long.compare(a.getCreatedAt(), b.getCreatedAt());
+                    }
+                });
+                break;
+            case 2: // Category
+                Collections.sort(notesList, new Comparator<Note>() {
+                    @Override
+                    public int compare(Note a, Note b) {
+                        if (a.isPinned() != b.isPinned()) return a.isPinned() ? -1 : 1;
+                        if (a.isCompleted() != b.isCompleted()) return a.isCompleted() ? 1 : -1;
+                        String catA = a.getCategory() != null ? a.getCategory() : "personal";
+                        String catB = b.getCategory() != null ? b.getCategory() : "personal";
+                        return catA.compareTo(catB);
+                    }
+                });
+                break;
+            case 3: // Title
+                Collections.sort(notesList, new Comparator<Note>() {
+                    @Override
+                    public int compare(Note a, Note b) {
+                        if (a.isPinned() != b.isPinned()) return a.isPinned() ? -1 : 1;
+                        if (a.isCompleted() != b.isCompleted()) return a.isCompleted() ? 1 : -1;
+                        return a.getTitle().compareToIgnoreCase(b.getTitle());
+                    }
+                });
+                break;
+            default: // Date newest first (default)
+                Collections.sort(notesList, new Comparator<Note>() {
+                    @Override
+                    public int compare(Note a, Note b) {
+                        if (a.isPinned() != b.isPinned()) return a.isPinned() ? -1 : 1;
+                        if (a.isCompleted() != b.isCompleted()) return a.isCompleted() ? 1 : -1;
+                        return Long.compare(b.getCreatedAt(), a.getCreatedAt());
+                    }
+                });
+                break;
+        }
+    }
+
+    private void updateEmptyState() {
+        if (notesList.isEmpty()) {
+            emptyView.setVisibility(View.VISIBLE);
+            recyclerView.setVisibility(View.GONE);
+        } else {
+            emptyView.setVisibility(View.GONE);
+            recyclerView.setVisibility(View.VISIBLE);
+        }
+    }
+
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        getMenuInflater().inflate(R.menu.menu_main, menu);
+        toggleViewMenuItem = menu.findItem(R.id.action_toggle_view);
+        if (toggleViewMenuItem != null) {
+            toggleViewMenuItem.setIcon(isCalendarView ? R.drawable.ic_list : R.drawable.ic_calendar);
+        }
+        return true;
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        int id = item.getItemId();
+
+        if (id == R.id.action_search) {
+            startActivity(new Intent(this, SearchActivity.class));
+            return true;
+        } else if (id == R.id.action_toggle_view) {
+            toggleView(!isCalendarView);
+            return true;
+        } else if (id == R.id.action_sort) {
+            showCustomSortDialog();
+            return true;
+        } else if (id == R.id.action_settings) {
+            startActivity(new Intent(this, SettingsActivity.class));
+            return true;
+        }
+
+        return super.onOptionsItemSelected(item);
     }
 
     // NEW: Show custom sort dialog
@@ -341,349 +491,213 @@ public class MainActivity extends AppCompatActivity implements NoteAdapter.OnNot
 
         // Sort option clicks
         cardDateNewest.setOnClickListener(v -> {
-            setSortMode(0, dialog);
+            currentSortMode = 0;
+            saveSortMode();
+            loadNotes();
+            updateSortDialogSelection(checkDateNewest, checkDateOldest, checkCategory, checkTitle);
         });
 
         cardDateOldest.setOnClickListener(v -> {
-            setSortMode(1, dialog);
+            currentSortMode = 1;
+            saveSortMode();
+            loadNotes();
+            updateSortDialogSelection(checkDateNewest, checkDateOldest, checkCategory, checkTitle);
         });
 
         cardCategory.setOnClickListener(v -> {
-            setSortMode(2, dialog);
+            currentSortMode = 2;
+            saveSortMode();
+            loadNotes();
+            updateSortDialogSelection(checkDateNewest, checkDateOldest, checkCategory, checkTitle);
         });
 
         cardTitle.setOnClickListener(v -> {
-            setSortMode(3, dialog);
+            currentSortMode = 3;
+            saveSortMode();
+            loadNotes();
+            updateSortDialogSelection(checkDateNewest, checkDateOldest, checkCategory, checkTitle);
         });
 
         dialog.show();
     }
 
-    // NEW: Update visual selection in sort dialog
-    private void updateSortDialogSelection(ImageView checkDateNewest, ImageView checkDateOldest,
-                                           ImageView checkCategory, ImageView checkTitle) {
-        // Hide all checkmarks
+    private void updateSortDialogSelection(ImageView checkDateNewest, ImageView checkDateOldest, ImageView checkCategory, ImageView checkTitle) {
+        // Hide all check marks
         checkDateNewest.setVisibility(View.GONE);
         checkDateOldest.setVisibility(View.GONE);
         checkCategory.setVisibility(View.GONE);
         checkTitle.setVisibility(View.GONE);
 
-        // Show checkmark for current selection
+        // Show current selection
         switch (currentSortMode) {
-            case 0:
-                checkDateNewest.setVisibility(View.VISIBLE);
-                break;
-            case 1:
-                checkDateOldest.setVisibility(View.VISIBLE);
-                break;
-            case 2:
-                checkCategory.setVisibility(View.VISIBLE);
-                break;
-            case 3:
-                checkTitle.setVisibility(View.VISIBLE);
-                break;
+            case 0: checkDateNewest.setVisibility(View.VISIBLE); break;
+            case 1: checkDateOldest.setVisibility(View.VISIBLE); break;
+            case 2: checkCategory.setVisibility(View.VISIBLE); break;
+            case 3: checkTitle.setVisibility(View.VISIBLE); break;
         }
     }
 
-    // NEW: Set sort mode and apply
-    private void setSortMode(int sortMode, Dialog dialog) {
-        currentSortMode = sortMode;
-
-        // Save sort preference
+    private void saveSortMode() {
         SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
         prefs.edit().putInt(PREF_SORT_MODE, currentSortMode).apply();
-
-        // Apply sort and refresh list
-        loadNotes();
-        dialog.dismiss();
-    }
-
-    // Sort notes based on current sort mode
-    private void sortNotes(List<Note> notes) {
-        switch (currentSortMode) {
-            case 0: // Date newest first (default)
-                Collections.sort(notes, new Comparator<Note>() {
-                    @Override
-                    public int compare(Note a, Note b) {
-                        // Pinned notes first
-                        if (a.isPinned() != b.isPinned()) return a.isPinned() ? -1 : 1;
-                        // Then by completion status
-                        if (a.isCompleted() != b.isCompleted()) return a.isCompleted() ? 1 : -1;
-                        // Then by date (newest first)
-                        return Long.compare(b.getCreatedAt(), a.getCreatedAt());
-                    }
-                });
-                break;
-
-            case 1: // Date oldest first
-                Collections.sort(notes, new Comparator<Note>() {
-                    @Override
-                    public int compare(Note a, Note b) {
-                        // Pinned notes first
-                        if (a.isPinned() != b.isPinned()) return a.isPinned() ? -1 : 1;
-                        // Then by completion status
-                        if (a.isCompleted() != b.isCompleted()) return a.isCompleted() ? 1 : -1;
-                        // Then by date (oldest first)
-                        return Long.compare(a.getCreatedAt(), b.getCreatedAt());
-                    }
-                });
-                break;
-
-            case 2: // By category
-                Collections.sort(notes, new Comparator<Note>() {
-                    @Override
-                    public int compare(Note a, Note b) {
-                        // Pinned notes first
-                        if (a.isPinned() != b.isPinned()) return a.isPinned() ? -1 : 1;
-                        // Then by completion status
-                        if (a.isCompleted() != b.isCompleted()) return a.isCompleted() ? 1 : -1;
-                        // Then by category
-                        String catA = a.getCategory() != null ? a.getCategory() : "personal";
-                        String catB = b.getCategory() != null ? b.getCategory() : "personal";
-                        int categoryCompare = catA.compareTo(catB);
-                        if (categoryCompare != 0) return categoryCompare;
-                        // Then by date (newest first) within same category
-                        return Long.compare(b.getCreatedAt(), a.getCreatedAt());
-                    }
-                });
-                break;
-
-            case 3: // By title alphabetically
-                Collections.sort(notes, new Comparator<Note>() {
-                    @Override
-                    public int compare(Note a, Note b) {
-                        // Pinned notes first
-                        if (a.isPinned() != b.isPinned()) return a.isPinned() ? -1 : 1;
-                        // Then by completion status
-                        if (a.isCompleted() != b.isCompleted()) return a.isCompleted() ? 1 : -1;
-                        // Then by title alphabetically
-                        return a.getTitle().compareToIgnoreCase(b.getTitle());
-                    }
-                });
-                break;
-        }
-    }
-
-    private void loadNotes() {
-        notesList = databaseHelper.getAllNotes();
-
-        // Apply current sort mode
-        sortNotes(notesList);
-
-        if (notesList.isEmpty()) {
-            recyclerView.setVisibility(View.GONE);
-            emptyView.setVisibility(View.VISIBLE);
-        } else {
-            recyclerView.setVisibility(View.VISIBLE);
-            emptyView.setVisibility(View.GONE);
-
-            noteAdapter = new NoteAdapter(this, notesList, this);
-            recyclerView.setAdapter(noteAdapter);
-        }
     }
 
     @Override
     public void onNoteClick(int position) {
-        Note note;
-        if (isCalendarView && selectedDateAdapter != null) {
-            // Click from calendar date view
-            note = ((NoteAdapter) selectedDateNotes.getAdapter()).notesList.get(position);
-        } else {
-            // Click from main list view
-            note = notesList.get(position);
-        }
+        List<Note> sourceList = isCalendarView && selectedDateAdapter != null ?
+                selectedDateAdapter.notesList : notesList;
 
-        Intent intent = new Intent(MainActivity.this, AddEditNoteActivity.class);
-        intent.putExtra("note_id", note.getId());
-        intent.putExtra("note_title", note.getTitle());
-        intent.putExtra("note_content", note.getContent());
-        intent.putExtra("note_reminder", note.getReminderTime());
-        startActivityForResult(intent, EDIT_NOTE_REQUEST);
+        if (position >= 0 && position < sourceList.size()) {
+            Note note = sourceList.get(position);
+            Intent intent = new Intent(MainActivity.this, AddEditNoteActivity.class);
+            intent.putExtra("note_id", note.getId());
+            intent.putExtra("note_title", note.getTitle());
+            intent.putExtra("note_content", note.getContent());
+            intent.putExtra("note_reminder", note.getReminderTime());
+            startActivityForResult(intent, EDIT_NOTE_REQUEST);
+        }
     }
 
     @Override
     public void onDeleteClick(int position) {
-        Note note;
-        RecyclerView.Adapter<?> adapter;
+        List<Note> sourceList = isCalendarView && selectedDateAdapter != null ?
+                selectedDateAdapter.notesList : notesList;
+        NoteAdapter sourceAdapter = isCalendarView && selectedDateAdapter != null ?
+                selectedDateAdapter : noteAdapter;
 
-        if (isCalendarView && selectedDateAdapter != null) {
-            note = ((NoteAdapter) selectedDateNotes.getAdapter()).notesList.get(position);
-            adapter = selectedDateNotes.getAdapter();
-        } else {
-            note = notesList.get(position);
-            adapter = noteAdapter;
-        }
+        if (position >= 0 && position < sourceList.size()) {
+            Note note = sourceList.get(position);
 
-        // ENHANCED: Cancel notification AND alarm for this note
-        if (note.getReminderTime() > 0) {
-            cancelNotification(note.getId());
-            // Also cancel the notification if it's currently showing
-            NotificationReceiver.cancelNotification(this, note.getId());
-        }
+            // Move to trash instead of permanent delete
+            databaseHelper.moveToTrash(note.getId());
+            sourceList.remove(position);
+            sourceAdapter.notifyItemRemoved(position);
 
-        // CHANGED: Move to trash instead of permanent delete
-        databaseHelper.moveToTrash(note.getId());
+            // Show undo snackbar
+            Snackbar.make(isCalendarView ? selectedDateNotes : recyclerView,
+                            "Заметка перемещена в корзину", Snackbar.LENGTH_LONG)
+                    .setAction("ОТМЕНИТЬ", v -> {
+                        databaseHelper.restoreFromTrash(note.getId());
+                        sourceList.add(position, note);
+                        sourceAdapter.notifyItemInserted(position);
+                        updateAppWidget();
+                    })
+                    .show();
 
-        // Update the list
-        if (isCalendarView && selectedDateAdapter != null) {
-            ((NoteAdapter) adapter).notesList.remove(position);
-            adapter.notifyItemRemoved(position);
-            if (((NoteAdapter) adapter).notesList.isEmpty()) {
-                selectedDateNotes.setVisibility(View.GONE);
-                emptyDateView.setVisibility(View.VISIBLE);
+            if (!isCalendarView) {
+                updateEmptyState();
+            } else {
+                // Refresh calendar data
+                updateCalendarDisplay();
+                // Refresh selected date if applicable
+                if (selectedDateAdapter != null && sourceList.isEmpty()) {
+                    selectedDateNotes.setVisibility(View.GONE);
+                    emptyDateView.setVisibility(View.VISIBLE);
+                    emptyDateView.setText("Нет заметок на выбранную дату");
+                }
             }
-            // Update calendar indicators
-            updateCalendarDisplay();
-        } else {
-            notesList.remove(position);
-            noteAdapter.notifyItemRemoved(position);
-            if (notesList.isEmpty()) {
-                recyclerView.setVisibility(View.GONE);
-                emptyView.setVisibility(View.VISIBLE);
-            }
+            updateAppWidget();
         }
-
-        // NEW: Show undo option for trash
-        Snackbar.make(recyclerView != null ? recyclerView : fabAdd, "Заметка перемещена в корзину", Snackbar.LENGTH_LONG)
-                .setAction("ОТМЕНИТЬ", v -> {
-                    // Restore from trash
-                    databaseHelper.restoreFromTrash(note.getId());
-
-                    // Refresh the list
-                    if (isCalendarView) {
-                        updateCalendarDisplay();
-                        // Re-trigger date click if applicable
-                    } else {
-                        loadNotes();
-                    }
-
-                    // Reschedule reminder if exists
-                    if (note.getReminderTime() > 0) {
-                        scheduleNotification(note);
-                    }
-                })
-                .show();
-
-        updateWidget();
     }
 
     @Override
     public void onCompleteClick(int position) {
-        Note note;
-        RecyclerView.Adapter<?> adapter;
+        List<Note> sourceList = isCalendarView && selectedDateAdapter != null ?
+                selectedDateAdapter.notesList : notesList;
+        NoteAdapter sourceAdapter = isCalendarView && selectedDateAdapter != null ?
+                selectedDateAdapter : noteAdapter;
 
-        if (isCalendarView && selectedDateAdapter != null) {
-            note = ((NoteAdapter) selectedDateNotes.getAdapter()).notesList.get(position);
-            adapter = selectedDateNotes.getAdapter();
-        } else {
-            note = notesList.get(position);
-            adapter = noteAdapter;
+        if (position >= 0 && position < sourceList.size()) {
+            Note note = sourceList.get(position);
+            note.setCompleted(!note.isCompleted());
+            databaseHelper.updateNote(note);
+            sourceAdapter.notifyItemChanged(position);
+            updateAppWidget();
+
+            // If completed, cancel any existing reminder
+            if (note.isCompleted()) {
+                cancelNotification(note.getId());
+            } else {
+                // If uncompleted and has reminder, reschedule it
+                if (note.getReminderTime() > 0) {
+                    scheduleNotification(note);
+                }
+            }
         }
-
-        note.setCompleted(!note.isCompleted());
-
-        // If note is being marked as completed, cancel its notification
-        if (note.isCompleted() && note.getReminderTime() > 0) {
-            cancelNotification(note.getId());
-            NotificationReceiver.cancelNotification(this, note.getId());
-        }
-
-        databaseHelper.updateNote(note);
-        adapter.notifyItemChanged(position);
-        updateWidget();
     }
 
     @Override
     public void onPinClick(int position) {
-        Note note;
+        List<Note> sourceList = isCalendarView && selectedDateAdapter != null ?
+                selectedDateAdapter.notesList : notesList;
+        NoteAdapter sourceAdapter = isCalendarView && selectedDateAdapter != null ?
+                selectedDateAdapter : noteAdapter;
 
-        if (isCalendarView && selectedDateAdapter != null) {
-            note = ((NoteAdapter) selectedDateNotes.getAdapter()).notesList.get(position);
-        } else {
-            note = notesList.get(position);
-        }
+        if (position >= 0 && position < sourceList.size()) {
+            Note note = sourceList.get(position);
+            note.setPinned(!note.isPinned());
+            databaseHelper.updateNote(note);
 
-        note.setPinned(!note.isPinned());
-        databaseHelper.updateNote(note);
+            // Re-sort the list to move pinned notes to top
+            if (!isCalendarView) {
+                loadNotes(); // This will re-sort and refresh the main list
+            } else {
+                // For calendar view, re-sort the selected date notes
+                Collections.sort(sourceList, new Comparator<Note>() {
+                    @Override
+                    public int compare(Note a, Note b) {
+                        if (a.isPinned() != b.isPinned()) return a.isPinned() ? -1 : 1;
+                        if (a.isCompleted() != b.isCompleted()) return a.isCompleted() ? 1 : -1;
+                        return Long.compare(b.getCreatedAt(), a.getCreatedAt());
+                    }
+                });
+                sourceAdapter.notifyDataSetChanged();
+            }
 
-        if (!isCalendarView) {
-            // Re-sort list with current sort mode
-            sortNotes(notesList);
-            noteAdapter.notifyDataSetChanged();
-        } else if (selectedDateAdapter != null) {
-            // Re-sort selected date notes
-            List<Note> dateNotes = ((NoteAdapter) selectedDateNotes.getAdapter()).notesList;
-            sortNotes(dateNotes);
-            selectedDateAdapter.notifyDataSetChanged();
-        }
-    }
-
-    // Enhanced method for better notification cancellation
-    private void cancelNotification(int noteId) {
-        // Cancel the alarm
-        AlarmManager alarmManager = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
-        Intent intent = new Intent(this, NotificationReceiver.class);
-        PendingIntent pendingIntent = PendingIntent.getBroadcast(
-                this,
-                noteId,
-                intent,
-                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
-        );
-        if (alarmManager != null) {
-            alarmManager.cancel(pendingIntent);
-        }
-
-        // Cancel any currently showing notification
-        NotificationManager notificationManager =
-                (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
-        if (notificationManager != null) {
-            notificationManager.cancel(noteId);
+            updateAppWidget();
         }
     }
 
-    private void createNotificationChannel() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            CharSequence name = "Напоминания о заметках";
-            String description = "Канал для напоминаний о задачах";
-            int importance = NotificationManager.IMPORTANCE_HIGH;
-
-            NotificationChannel channel = new NotificationChannel(CHANNEL_ID, name, importance);
-            channel.setDescription(description);
-            channel.enableVibration(true);
-            channel.enableLights(true);
-
-            NotificationManager notificationManager = getSystemService(NotificationManager.class);
-            notificationManager.createNotificationChannel(channel);
+    private void handleNotificationIntent(Intent intent) {
+        if (intent != null && intent.hasExtra("note_id")) {
+            int noteId = intent.getIntExtra("note_id", -1);
+            if (noteId != -1) {
+                // Open specific note
+                Note note = databaseHelper.getNote(noteId);
+                if (note != null) {
+                    Intent editIntent = new Intent(this, AddEditNoteActivity.class);
+                    editIntent.putExtra("note_id", note.getId());
+                    editIntent.putExtra("note_title", note.getTitle());
+                    editIntent.putExtra("note_content", note.getContent());
+                    editIntent.putExtra("note_reminder", note.getReminderTime());
+                    startActivityForResult(editIntent, EDIT_NOTE_REQUEST);
+                }
+            }
         }
     }
 
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
-
         if (resultCode == RESULT_OK) {
-            if (isCalendarView) {
-                updateCalendarDisplay();
-                // Refresh selected date if any
-                if (textSelectedDate.getVisibility() == View.VISIBLE) {
-                    // Re-trigger date click to refresh the list
-                    // You might want to store selected date and re-load it
-                }
-            } else {
+            if (!isCalendarView) {
                 loadNotes();
+            } else {
+                updateCalendarDisplay();
             }
+            updateAppWidget();
         }
     }
 
     @Override
     protected void onResume() {
         super.onResume();
-        if (isCalendarView) {
-            updateCalendarDisplay();
-        } else {
+        if (!isCalendarView) {
             loadNotes();
+        } else {
+            updateCalendarDisplay();
         }
-        updateWidget();
+        updateAppWidget();
     }
 
     @Override
@@ -694,200 +708,64 @@ public class MainActivity extends AppCompatActivity implements NoteAdapter.OnNot
         }
     }
 
-    @Override
-    public boolean onCreateOptionsMenu(Menu menu) {
-        getMenuInflater().inflate(R.menu.menu_main, menu);
-        toggleViewMenuItem = menu.findItem(R.id.action_toggle_view);
-        toggleViewMenuItem.setIcon(isCalendarView ? R.drawable.ic_list : R.drawable.ic_calendar);
-        return true;
-    }
+    private void createNotificationChannel() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            CharSequence name = "Напоминания заметок";
+            String description = "Уведомления для запланированных заметок";
+            int importance = NotificationManager.IMPORTANCE_HIGH;
+            NotificationChannel channel = new NotificationChannel(CHANNEL_ID, name, importance);
+            channel.setDescription(description);
 
-    @Override
-    public boolean onOptionsItemSelected(MenuItem item) {
-        int id = item.getItemId();
-
-        if (id == R.id.action_sort) {
-            // NEW: Show custom sort dialog
-            showCustomSortDialog();
-            return true;
-        } else if (id == R.id.action_toggle_view) {
-            toggleView(!isCalendarView);
-            return true;
-        } else if (id == R.id.action_search) {
-            Intent intent = new Intent(MainActivity.this, SearchActivity.class);
-            startActivity(intent);
-            return true;
-        } else if (id == R.id.action_settings) {
-            Intent intent = new Intent(MainActivity.this, SettingsActivity.class);
-            startActivity(intent);
-            return true;
+            NotificationManager notificationManager = getSystemService(NotificationManager.class);
+            notificationManager.createNotificationChannel(channel);
         }
-
-        return super.onOptionsItemSelected(item);
-    }
-
-    private void updateWidget() {
-        Intent intent = new Intent(this, NotesWidgetProvider.class);
-        intent.setAction("com.example.notesapp.UPDATE_WIDGET");
-        sendBroadcast(intent);
-
-        AppWidgetManager appWidgetManager = AppWidgetManager.getInstance(this);
-        int[] appWidgetIds = appWidgetManager.getAppWidgetIds(
-                new ComponentName(this, NotesWidgetProvider.class)
-        );
-        if (appWidgetIds != null && appWidgetIds.length > 0) {
-            for (int appWidgetId : appWidgetIds) {
-                NotesWidgetProvider.updateAppWidget(this, appWidgetManager, appWidgetId);
-            }
-        }
-    }
-
-    private void setupSwipes() {
-        ItemTouchHelper.SimpleCallback swipeCallback =
-                new ItemTouchHelper.SimpleCallback(0, ItemTouchHelper.LEFT | ItemTouchHelper.RIGHT) {
-
-                    @Override
-                    public void onChildDraw(Canvas c, RecyclerView recyclerView, RecyclerView.ViewHolder viewHolder,
-                                            float dX, float dY, int actionState, boolean isCurrentlyActive) {
-                        super.onChildDraw(c, recyclerView, viewHolder, dX, dY, actionState, isCurrentlyActive);
-
-                        View itemView = viewHolder.itemView;
-                        float height = (float) itemView.getBottom() - itemView.getTop();
-                        float iconSize = height * 0.4f;
-
-                        Paint paint = new Paint();
-                        Drawable icon;
-
-                        if (dX > 0) {
-                            // Swiping right -> complete (green background, check icon)
-                            paint.setColor(Color.parseColor("#2E7D32")); // green 800
-                            c.drawRect(itemView.getLeft(), itemView.getTop(),
-                                    itemView.getLeft() + dX, itemView.getBottom(), paint);
-
-                            icon = ContextCompat.getDrawable(recyclerView.getContext(), R.drawable.ic_check_green);
-                            if (icon != null) {
-                                int left = itemView.getLeft() + (int)(height * 0.3f);
-                                int top = itemView.getTop() + (int)((height - iconSize) / 2);
-                                int right = left + (int)iconSize;
-                                int bottom = top + (int)iconSize;
-                                icon.setBounds(left, top, right, bottom);
-                                icon.draw(c);
-                            }
-                        } else if (dX < 0) {
-                            // Swiping left -> delete (red background, trash icon)
-                            paint.setColor(Color.parseColor("#C62828")); // red 800
-                            c.drawRect(itemView.getRight() + dX, itemView.getTop(),
-                                    itemView.getRight(), itemView.getBottom(), paint);
-
-                            icon = ContextCompat.getDrawable(recyclerView.getContext(), R.drawable.ic_delete);
-                            if (icon != null) {
-                                int right = itemView.getRight() - (int)(height * 0.3f);
-                                int top = itemView.getTop() + (int)((height - iconSize) / 2);
-                                int left = right - (int)iconSize;
-                                int bottom = top + (int)iconSize;
-                                icon.setBounds(left, top, right, bottom);
-                                icon.draw(c);
-                            }
-                        }
-                    }
-                    @Override
-                    public boolean onMove(RecyclerView recyclerView, RecyclerView.ViewHolder viewHolder, RecyclerView.ViewHolder target) {
-                        return false;
-                    }
-
-                    @Override
-                    public void onSwiped(RecyclerView.ViewHolder viewHolder, int direction) {
-                        int pos = viewHolder.getBindingAdapterPosition();
-                        if (pos == RecyclerView.NO_POSITION) return;
-
-                        Note note = notesList.get(pos);
-
-                        if (direction == ItemTouchHelper.LEFT) {
-                            // CHANGED: Move to trash with UNDO instead of permanent delete
-                            // cancel reminder if any
-                            if (note.getReminderTime() > 0) {
-                                cancelNotification(note.getId());
-                                NotificationReceiver.cancelNotification(MainActivity.this, note.getId());
-                            }
-
-                            // move to trash
-                            databaseHelper.moveToTrash(note.getId());
-                            notesList.remove(pos);
-                            noteAdapter.notifyItemRemoved(pos);
-
-                            // empty state toggle
-                            if (notesList.isEmpty()) {
-                                recyclerView.setVisibility(View.GONE);
-                                emptyView.setVisibility(View.VISIBLE);
-                            }
-
-                            updateWidget();
-
-                            Snackbar.make(MainActivity.this.recyclerView, "Заметка перемещена в корзину", Snackbar.LENGTH_LONG)
-                                    .setAction("ОТМЕНИТЬ", v -> {
-                                        // Restore from trash
-                                        databaseHelper.restoreFromTrash(note.getId());
-                                        notesList.add(pos, note);
-                                        noteAdapter.notifyItemInserted(pos);
-
-                                        // reschedule reminder if exists
-                                        if (note.getReminderTime() > 0) {
-                                            scheduleNotification(note);
-                                        }
-
-                                        recyclerView.setVisibility(View.VISIBLE);
-                                        emptyView.setVisibility(View.GONE);
-                                        updateWidget();
-                                    })
-                                    .addCallback(new Snackbar.Callback() {
-                                        @Override
-                                        public void onDismissed(Snackbar transientBottomBar, int event) {
-                                            // refresh row if user dismissed without UNDO to clear swipe state
-                                            noteAdapter.notifyItemRangeChanged(pos, noteAdapter.getItemCount() - pos);
-                                        }
-                                    })
-                                    .show();
-
-                        } else if (direction == ItemTouchHelper.RIGHT) {
-                            // Toggle complete
-                            note.setCompleted(!note.isCompleted());
-
-                            // If note is being marked as completed, cancel its notification
-                            if (note.isCompleted() && note.getReminderTime() > 0) {
-                                cancelNotification(note.getId());
-                                NotificationReceiver.cancelNotification(MainActivity.this, note.getId());
-                            }
-
-                            databaseHelper.updateNote(note);
-                            noteAdapter.notifyItemChanged(pos);
-                            updateWidget();
-                        }
-                    }
-                };
-        new ItemTouchHelper(swipeCallback).attachToRecyclerView(recyclerView);
     }
 
     private void scheduleNotification(Note note) {
+        if (note.getReminderTime() <= System.currentTimeMillis()) {
+            return; // Don't schedule past reminders
+        }
+
+        AlarmManager alarmManager = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
         Intent intent = new Intent(this, NotificationReceiver.class);
         intent.putExtra("note_id", note.getId());
         intent.putExtra("note_title", note.getTitle());
         intent.putExtra("note_content", note.getContent());
 
-        PendingIntent pendingIntent = PendingIntent.getBroadcast(
-                this,
-                note.getId(),
-                intent,
-                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
-        );
-
-        AlarmManager alarmManager = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
-        long when = note.getReminderTime();
-        if (when <= 0) return;
+        PendingIntent pendingIntent = PendingIntent.getBroadcast(this, note.getId(), intent,
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, when, pendingIntent);
+            alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, note.getReminderTime(), pendingIntent);
         } else {
-            alarmManager.setExact(AlarmManager.RTC_WAKEUP, when, pendingIntent);
+            alarmManager.setExact(AlarmManager.RTC_WAKEUP, note.getReminderTime(), pendingIntent);
+        }
+    }
+
+    private void cancelNotification(int noteId) {
+        AlarmManager alarmManager = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
+        Intent intent = new Intent(this, NotificationReceiver.class);
+        PendingIntent pendingIntent = PendingIntent.getBroadcast(this, noteId, intent,
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+        alarmManager.cancel(pendingIntent);
+    }
+
+    private void updateAppWidget() {
+        Intent intent = new Intent(this, NotesWidgetProvider.class);
+        intent.setAction(AppWidgetManager.ACTION_APPWIDGET_UPDATE);
+
+        AppWidgetManager appWidgetManager = AppWidgetManager.getInstance(this);
+        ComponentName provider = new ComponentName(this, NotesWidgetProvider.class);
+        int[] ids = appWidgetManager.getAppWidgetIds(provider);
+
+        if (ids.length > 0) {
+            intent.putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, ids);
+            sendBroadcast(intent);
+
+            // Force update the widget
+            for (int id : ids) {
+                NotesWidgetProvider.updateAppWidget(this, appWidgetManager, id);
+            }
         }
     }
 }

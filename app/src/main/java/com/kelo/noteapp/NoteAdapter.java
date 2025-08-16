@@ -47,6 +47,11 @@ public class NoteAdapter extends RecyclerView.Adapter<NoteAdapter.NoteViewHolder
         this.onNoteListener = onNoteListener;
     }
 
+    // Add getter method for notesList
+    public List<Note> getNotesList() {
+        return notesList;
+    }
+
     @NonNull
     @Override
     public NoteViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {

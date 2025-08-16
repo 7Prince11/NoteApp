@@ -2,6 +2,7 @@ package com.kelo.noteapp;
 
 import android.content.Context;
 import android.graphics.Color;
+import android.graphics.Typeface;
 import android.os.Build;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -9,6 +10,7 @@ import android.view.ViewGroup;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
+import androidx.core.content.ContextCompat;
 import androidx.recyclerview.widget.RecyclerView;
 
 import java.util.ArrayList;
@@ -85,12 +87,12 @@ public class CalendarAdapter extends RecyclerView.Adapter<CalendarAdapter.Calend
         // Get first day of month
         int firstDayOfWeek = calendar.get(Calendar.DAY_OF_WEEK);
 
-        // Convert to Monday-based index
+        // Convert to Monday-based index (Monday = 0, Sunday = 6)
         int startOffset;
         if (firstDayOfWeek == Calendar.SUNDAY) {
-            startOffset = 6;
+            startOffset = 6; // Sunday is last day of week
         } else {
-            startOffset = firstDayOfWeek - 2;
+            startOffset = firstDayOfWeek - 2; // Monday = 0, Tuesday = 1, etc.
         }
 
         // Add previous month's trailing days
@@ -121,14 +123,14 @@ public class CalendarAdapter extends RecyclerView.Adapter<CalendarAdapter.Calend
             days.add(new CalendarDay(i, month, year, true, isToday, isPast));
         }
 
-        // Add next month's leading days
+        // Add next month's leading days to fill remaining cells
         Calendar nextMonth = (Calendar) calendar.clone();
         nextMonth.add(Calendar.MONTH, 1);
         int nextMonthNum = nextMonth.get(Calendar.MONTH);
         int nextYear = nextMonth.get(Calendar.YEAR);
 
         int totalCells = days.size();
-        int remainingCells = 42 - totalCells;
+        int remainingCells = 42 - totalCells; // 6 rows × 7 days
 
         for (int i = 1; i <= remainingCells; i++) {
             Calendar dayCheck = Calendar.getInstance();
@@ -152,79 +154,123 @@ public class CalendarAdapter extends RecyclerView.Adapter<CalendarAdapter.Calend
     public void onBindViewHolder(@NonNull CalendarViewHolder holder, int position) {
         CalendarDay day = days.get(position);
 
+        // Set day number
         holder.dayNumber.setText(String.valueOf(day.day));
 
-        // Style based on current month and past/future
-        if (!day.isCurrentMonth) {
-            holder.dayNumber.setAlpha(0.3f);
-        } else if (day.isPast) {
-            holder.dayNumber.setAlpha(0.5f); // Dim past dates
-        } else {
-            holder.dayNumber.setAlpha(1.0f);
-        }
-
-        // Highlight today
+        // Set background for today
         if (day.isToday) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                holder.dayNumber.setTextColor(context.getColor(R.color.colorAccent));
+                holder.dayNumber.setBackgroundResource(R.drawable.calendar_today_background);
+                holder.dayNumber.setTextColor(context.getColor(R.color.text_on_primary));
             } else {
-                holder.dayNumber.setTextColor(context.getResources().getColor(R.color.colorAccent));
+                holder.dayNumber.setBackgroundResource(R.drawable.calendar_today_background);
+                holder.dayNumber.setTextColor(context.getResources().getColor(R.color.text_on_primary));
             }
             holder.dayNumber.setTextSize(16);
-            holder.dayNumber.setTypeface(null, android.graphics.Typeface.BOLD);
+            holder.dayNumber.setTypeface(null, Typeface.BOLD);
         } else {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                holder.dayNumber.setTextColor(day.isPast ?
-                        context.getColor(R.color.text_tertiary) :
-                        context.getColor(R.color.text_primary));
+            // Reset background
+            holder.dayNumber.setBackground(null);
+
+            // Set text color based on month and past/future
+            if (!day.isCurrentMonth) {
+                // Previous/next month days
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    holder.dayNumber.setTextColor(context.getColor(R.color.text_quaternary));
+                } else {
+                    holder.dayNumber.setTextColor(context.getResources().getColor(R.color.text_quaternary));
+                }
+            } else if (day.isPast) {
+                // Past days in current month
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    holder.dayNumber.setTextColor(context.getColor(R.color.text_tertiary));
+                } else {
+                    holder.dayNumber.setTextColor(context.getResources().getColor(R.color.text_tertiary));
+                }
             } else {
-                holder.dayNumber.setTextColor(day.isPast ?
-                        context.getResources().getColor(R.color.text_tertiary) :
-                        context.getResources().getColor(R.color.text_primary));
+                // Future days in current month
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    holder.dayNumber.setTextColor(context.getColor(R.color.text_primary));
+                } else {
+                    holder.dayNumber.setTextColor(context.getResources().getColor(R.color.text_primary));
+                }
             }
             holder.dayNumber.setTextSize(14);
-            holder.dayNumber.setTypeface(null, android.graphics.Typeface.NORMAL);
+            holder.dayNumber.setTypeface(null, Typeface.NORMAL);
         }
 
         // Show selected state
-        holder.dayNumber.setSelected(position == selectedPosition);
-        if (position == selectedPosition && !day.isPast) {
-            holder.dayNumber.setTextColor(Color.WHITE);
+        if (position == selectedPosition && day.isCurrentMonth && !day.isPast) {
+            holder.dayNumber.setBackgroundResource(R.drawable.calendar_selected_background);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                holder.dayNumber.setTextColor(context.getColor(R.color.text_on_primary));
+            } else {
+                holder.dayNumber.setTextColor(Color.WHITE);
+            }
         }
 
-        // Show note indicator ONLY for future dates
+        // Show note indicator - only for current month, future dates (including today)
         String dateKey = day.getDateKey();
-        boolean hasNotes = !day.isPast && notesCountMap != null &&
+        boolean hasNotes = day.isCurrentMonth && !day.isPast && notesCountMap != null &&
                 notesCountMap.containsKey(dateKey) && notesCountMap.get(dateKey) > 0;
-        boolean hasRecurring = !day.isPast && recurringDates != null &&
+        boolean hasRecurring = day.isCurrentMonth && !day.isPast && recurringDates != null &&
                 recurringDates.contains(dateKey);
 
         if (hasNotes || hasRecurring) {
             holder.noteIndicator.setVisibility(View.VISIBLE);
-            // Use different color for recurring
+            // Use different colors for different types of reminders
             if (hasRecurring && !hasNotes) {
-                holder.noteIndicator.setBackgroundResource(R.drawable.recurring_indicator_dot);
+                // Only recurring reminders (daily reminders within 7-day window)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    holder.noteIndicator.setBackgroundTintList(
+                            ContextCompat.getColorStateList(context, R.color.recurring_indicator_color));
+                } else {
+                    holder.noteIndicator.setBackgroundResource(R.drawable.recurring_indicator_dot);
+                }
+            } else if (hasNotes && !hasRecurring) {
+                // Only specific date reminders
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    holder.noteIndicator.setBackgroundTintList(
+                            ContextCompat.getColorStateList(context, R.color.note_indicator_color));
+                } else {
+                    holder.noteIndicator.setBackgroundResource(R.drawable.note_indicator_dot);
+                }
             } else {
-                holder.noteIndicator.setBackgroundResource(R.drawable.note_indicator_dot);
+                // Both types of reminders
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    holder.noteIndicator.setBackgroundTintList(
+                            ContextCompat.getColorStateList(context, R.color.mixed_indicator_color));
+                } else {
+                    holder.noteIndicator.setBackgroundResource(R.drawable.note_indicator_dot);
+                }
             }
         } else {
             holder.noteIndicator.setVisibility(View.GONE);
         }
 
-        // Click listener - only for current month and future dates
+        // Click listener - only for current month and future dates (including today)
         holder.itemView.setOnClickListener(v -> {
             if (day.isCurrentMonth && !day.isPast) {
                 int oldSelected = selectedPosition;
                 selectedPosition = holder.getAdapterPosition();
-                notifyItemChanged(oldSelected);
+
+                // Update both items
+                if (oldSelected != -1) {
+                    notifyItemChanged(oldSelected);
+                }
                 notifyItemChanged(selectedPosition);
+
+                // Notify listener
                 listener.onDateClick(day.year, day.month, day.day);
             }
         });
 
-        // Disable click for past dates
-        holder.itemView.setClickable(!day.isPast);
-        holder.itemView.setFocusable(!day.isPast);
+        // Enable/disable interaction based on date validity
+        holder.itemView.setClickable(day.isCurrentMonth && !day.isPast);
+        holder.itemView.setFocusable(day.isCurrentMonth && !day.isPast);
+
+        // Set alpha for visual feedback
+        holder.itemView.setAlpha(day.isCurrentMonth && !day.isPast ? 1.0f : 0.6f);
     }
 
     @Override
