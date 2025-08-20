@@ -71,69 +71,96 @@ public class NoteAdapter extends RecyclerView.Adapter<NoteAdapter.NoteViewHolder
         SimpleDateFormat sdf = new SimpleDateFormat("dd MMM yyyy", new Locale("ru"));
         String dateText = sdf.format(new Date(note.getCreatedAt()));
         holder.textDate.setText(dateText);
-        holder.textDate.setVisibility(View.VISIBLE);
 
-        // Category stripe design
+        // Category stripe and text
         String cat = note.getCategory();
         if (cat != null && !cat.isEmpty()) {
-            // Show category stripe at top
             holder.categoryStripe.setVisibility(View.VISIBLE);
             holder.textCategory.setText(displayNameFor(cat));
             holder.categoryStripe.setBackgroundColor(colorFor(cat));
+        } else {
+            holder.categoryStripe.setVisibility(View.GONE);
+        }
 
-            // Handle pinned badge in stripe
-            if (note.isPinned()) {
+        // Pin status - using existing badges
+        if (note.isPinned()) {
+            if (cat != null && !cat.isEmpty()) {
+                // Has category - use white badge
                 holder.textPinnedBadge.setVisibility(View.VISIBLE);
                 holder.textPinnedBadgeAlt.setVisibility(View.GONE);
             } else {
+                // No category - use alt badge
                 holder.textPinnedBadge.setVisibility(View.GONE);
-                holder.textPinnedBadgeAlt.setVisibility(View.GONE);
+                holder.textPinnedBadgeAlt.setVisibility(View.VISIBLE);
             }
         } else {
-            // No category - hide stripe, show normal pinned badge if needed
-            holder.categoryStripe.setVisibility(View.GONE);
             holder.textPinnedBadge.setVisibility(View.GONE);
-            holder.textPinnedBadgeAlt.setVisibility(note.isPinned() ? View.VISIBLE : View.GONE);
+            holder.textPinnedBadgeAlt.setVisibility(View.GONE);
         }
 
-        // Reminder UI
-        if (note.hasReminder() && note.getReminderTime() > 0) {
+        // Reminder handling
+        if (note.hasReminder() && !note.isCompleted()) {
             holder.reminderContainer.setVisibility(View.VISIBLE);
 
-            if (note.isReminderExpired()) {
-                holder.textReminderTime.setText("Просрочено");
-                holder.textReminderTime.setTextColor(ContextCompat.getColor(context, android.R.color.holo_red_dark));
+            // Format reminder time based on date proximity
+            Calendar reminderCal = Calendar.getInstance();
+            reminderCal.setTimeInMillis(note.getReminderTime());
+            Calendar now = Calendar.getInstance();
+
+            String reminderText;
+            if (reminderCal.get(Calendar.DAY_OF_YEAR) == now.get(Calendar.DAY_OF_YEAR) &&
+                    reminderCal.get(Calendar.YEAR) == now.get(Calendar.YEAR)) {
+                // Today - show only time
+                SimpleDateFormat timeFormat = new SimpleDateFormat(
+                        use24HourFormat() ? "HH:mm" : "h:mma",
+                        new Locale("ru")
+                );
+                reminderText = timeFormat.format(new Date(note.getReminderTime()));
             } else {
-                Calendar reminderCal = Calendar.getInstance();
-                reminderCal.setTimeInMillis(note.getReminderTime());
+                // Other day - show date and time
+                SimpleDateFormat compactFormat = new SimpleDateFormat(
+                        use24HourFormat() ? "d MMM HH:mm" : "d MMM h:mma",
+                        new Locale("ru")
+                );
+                reminderText = compactFormat.format(new Date(note.getReminderTime()));
+            }
 
-                Calendar today = Calendar.getInstance();
-                boolean isToday = reminderCal.get(Calendar.YEAR) == today.get(Calendar.YEAR) &&
-                        reminderCal.get(Calendar.DAY_OF_YEAR) == today.get(Calendar.DAY_OF_YEAR);
+            // NEW: For everyday tasks, add repetition info
+            if ("everyday".equals(note.getCategory())) {
+                reminderText += " (каждые 7 дней)";
+            }
 
-                String reminderText;
-                if (isToday) {
-                    SimpleDateFormat timeFormat = new SimpleDateFormat(
-                            use24HourFormat() ? "HH:mm" : "h:mma",
-                            new Locale("ru")
-                    );
-                    reminderText = timeFormat.format(new Date(note.getReminderTime()));
-                } else {
-                    SimpleDateFormat compactFormat = new SimpleDateFormat(
-                            use24HourFormat() ? "d MMM HH:mm" : "d MMM h:mma",
-                            new Locale("ru")
-                    );
-                    reminderText = compactFormat.format(new Date(note.getReminderTime()));
-                }
+            holder.textReminderTime.setText(reminderText);
+            holder.textReminderTime.setTextColor(ContextCompat.getColor(context, R.color.colorAccent));
 
-                holder.textReminderTime.setText(reminderText);
-                holder.textReminderTime.setTextColor(ContextCompat.getColor(context, R.color.colorAccent));
+            // Set color based on urgency
+            holder.iconReminder.setImageResource(R.drawable.ic_alarm_small);
+
+            // Set color based on urgency
+            if (note.isReminderExpired()) {
+                // Expired reminder - red color
+                holder.iconReminder.setColorFilter(ContextCompat.getColor(context, R.color.colorAccent));
+            } else if (reminderCal.get(Calendar.DAY_OF_YEAR) == now.get(Calendar.DAY_OF_YEAR) &&
+                    reminderCal.get(Calendar.YEAR) == now.get(Calendar.YEAR)) {
+                // Today's reminder - accent color
+                holder.iconReminder.setColorFilter(ContextCompat.getColor(context, R.color.colorAccent));
+            } else {
+                // Future reminder - primary color
+                holder.iconReminder.setColorFilter(ContextCompat.getColor(context, R.color.colorPrimary));
             }
         } else {
             holder.reminderContainer.setVisibility(View.GONE);
         }
 
-        // Completed styling
+        // NEW: Special handling for everyday category
+        // For everyday tasks, we can show a special indicator in the category text or modify the display
+        if ("everyday".equals(note.getCategory())) {
+            // Could add a recurring icon or special text to indicate it's an everyday task
+            // Since we don't want to change layout, we can modify the category text display
+            holder.textCategory.setText("📅 " + displayNameFor(cat)); // Add emoji to indicate recurring
+        }
+
+        // Completion status
         holder.checkboxComplete.setOnCheckedChangeListener(null);
         holder.checkboxComplete.setChecked(note.isCompleted());
         if (note.isCompleted()) {
@@ -146,7 +173,7 @@ public class NoteAdapter extends RecyclerView.Adapter<NoteAdapter.NoteViewHolder
             holder.cardView.setAlpha(1.0f);
         }
 
-        // Delete
+        // Delete button
         holder.btnDelete.setOnClickListener(v -> {
             if (holder.getAdapterPosition() != RecyclerView.NO_POSITION) {
                 onNoteListener.onDeleteClick(holder.getAdapterPosition());
@@ -155,7 +182,8 @@ public class NoteAdapter extends RecyclerView.Adapter<NoteAdapter.NoteViewHolder
 
         // Checkbox toggle
         holder.checkboxComplete.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
-            @Override public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
+            @Override
+            public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
                 if (holder.getAdapterPosition() != RecyclerView.NO_POSITION) {
                     onNoteListener.onCompleteClick(holder.getAdapterPosition());
                 }
@@ -173,9 +201,11 @@ public class NoteAdapter extends RecyclerView.Adapter<NoteAdapter.NoteViewHolder
         holder.itemView.setOnLongClickListener(v -> {
             PopupMenu menu = new PopupMenu(context, v);
             final int MENU_PIN = 1;
-            menu.getMenu().add(0, MENU_PIN, 0, note.isPinned() ? "Открепить" : "Закрепить");
+            menu.getMenu().add(0, MENU_PIN, 0, note.isPinned() ?
+                    "Открепить" : "Закрепить");
             menu.setOnMenuItemClickListener(new PopupMenu.OnMenuItemClickListener() {
-                @Override public boolean onMenuItemClick(MenuItem item) {
+                @Override
+                public boolean onMenuItemClick(MenuItem item) {
                     if (item.getItemId() == MENU_PIN) {
                         if (holder.getAdapterPosition() != RecyclerView.NO_POSITION) {
                             onNoteListener.onPinClick(holder.getAdapterPosition());
@@ -227,13 +257,14 @@ public class NoteAdapter extends RecyclerView.Adapter<NoteAdapter.NoteViewHolder
         return prefs.getBoolean("time_24h", true);
     }
 
-    // Category helpers
+    // Category helpers - UPDATED with everyday category
     private String displayNameFor(String key) {
         switch (key) {
             case "work":     return "Работа";
             case "family":   return "Семья";
             case "errand":   return "Поручение";
             case "personal": return "Личное";
+            case "everyday": return "Ежедневно"; // NEW
             default:         return "Другое";
         }
     }
@@ -243,6 +274,7 @@ public class NoteAdapter extends RecyclerView.Adapter<NoteAdapter.NoteViewHolder
         if ("personal".equals(key)) return ContextCompat.getColor(context, R.color.category_personal);
         if ("family".equals(key))   return ContextCompat.getColor(context, R.color.category_family);
         if ("errand".equals(key))   return ContextCompat.getColor(context, R.color.category_errand);
+        if ("everyday".equals(key)) return ContextCompat.getColor(context, R.color.recurring_indicator_color); // NEW - Blue color
         return ContextCompat.getColor(context, R.color.category_other);
     }
 }

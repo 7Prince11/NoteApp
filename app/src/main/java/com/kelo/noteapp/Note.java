@@ -14,7 +14,7 @@ public class Note implements Serializable {
     // Repeat days bitmask (Mon=1<<0 ... Sun=1<<6)
     private int repeatDays;
 
-    // Category (work, personal, family, errand, other)
+    // Category (work, personal, family, errand, other, everyday)
     private String category;
 
     // NEW: Trash functionality
@@ -60,4 +60,14 @@ public class Note implements Serializable {
     public boolean hasReminder() { return reminderTime > 0; }
     public boolean isReminderExpired() { return hasReminder() && reminderTime < System.currentTimeMillis(); }
     public boolean isRepeating() { return repeatDays != 0; }
+
+    // NEW: Helper method to check if this is an everyday category task
+    public boolean isEverydayCategory() {
+        return "everyday".equals(category);
+    }
+
+    // NEW: Helper method to check if this should be treated as recurring
+    public boolean shouldShowAsRecurring() {
+        return isRepeating() || isEverydayCategory();
+    }
 }

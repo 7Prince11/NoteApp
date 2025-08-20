@@ -10,7 +10,6 @@ import android.view.ViewGroup;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
-import androidx.core.content.ContextCompat;
 import androidx.recyclerview.widget.RecyclerView;
 
 import java.util.ArrayList;
@@ -21,28 +20,28 @@ import java.util.Set;
 
 public class CalendarAdapter extends RecyclerView.Adapter<CalendarAdapter.CalendarViewHolder> {
 
-    private final Context context;
-    private final List<CalendarDay> days;
-    private final OnDateClickListener listener;
-    private int selectedPosition = -1;
-    private Map<String, Integer> notesCountMap;
-    private Set<String> recurringDates;
-    private Calendar todayCalendar;
-
     public interface OnDateClickListener {
         void onDateClick(int year, int month, int day);
     }
 
-    public static class CalendarDay {
-        public final int day;
-        public final int month;
-        public final int year;
-        public final boolean isCurrentMonth;
-        public final boolean isToday;
-        public final boolean isTomorrow;
-        public final boolean isPast;
+    private final Context context;
+    private final OnDateClickListener listener;
+    private final List<CalendarDay> days;
+    private final Calendar todayCalendar;
+    private int selectedPosition = -1;
+    private Map<String, Integer> notesCountMap;
+    private Set<String> recurringDates;
 
-        public CalendarDay(int day, int month, int year, boolean isCurrentMonth, boolean isToday, boolean isTomorrow, boolean isPast) {
+    static class CalendarDay {
+        int day;
+        int month;
+        int year;
+        boolean isCurrentMonth;
+        boolean isToday;
+        boolean isTomorrow;
+        boolean isPast;
+
+        CalendarDay(int day, int month, int year, boolean isCurrentMonth, boolean isToday, boolean isTomorrow, boolean isPast) {
             this.day = day;
             this.month = month;
             this.year = year;
@@ -96,42 +95,37 @@ public class CalendarAdapter extends RecyclerView.Adapter<CalendarAdapter.Calend
         // Get first day of month
         int firstDayOfWeek = calendar.get(Calendar.DAY_OF_WEEK);
 
-        // Convert to Monday-based index (FIXED)
-        int startOffset;
-        if (firstDayOfWeek == Calendar.SUNDAY) {
-            startOffset = 6;
-        } else {
-            startOffset = firstDayOfWeek - 2;
-        }
+        // Convert to Monday-based index (Monday=0, Sunday=6)
+        int mondayBasedFirst = (firstDayOfWeek == Calendar.SUNDAY) ? 6 : (firstDayOfWeek - 2);
 
         // Add previous month's trailing days
-        if (startOffset > 0) {
-            Calendar prevMonth = (Calendar) calendar.clone();
-            prevMonth.add(Calendar.MONTH, -1);
-            int prevMonthDays = prevMonth.getActualMaximum(Calendar.DAY_OF_MONTH);
-            int prevMonthNum = prevMonth.get(Calendar.MONTH);
-            int prevYear = prevMonth.get(Calendar.YEAR);
+        Calendar prevMonth = (Calendar) calendar.clone();
+        prevMonth.add(Calendar.MONTH, -1);
+        int prevMonthNum = prevMonth.get(Calendar.MONTH);
+        int prevYear = prevMonth.get(Calendar.YEAR);
+        int prevMonthDays = prevMonth.getActualMaximum(Calendar.DAY_OF_MONTH);
 
-            for (int i = prevMonthDays - startOffset + 1; i <= prevMonthDays; i++) {
-                Calendar dayCheck = Calendar.getInstance();
-                dayCheck.set(prevYear, prevMonthNum, i, 0, 0, 0);
-                dayCheck.set(Calendar.MILLISECOND, 0);
-                boolean isPast = dayCheck.before(today);
-                days.add(new CalendarDay(i, prevMonthNum, prevYear, false, false, false, isPast));
-            }
+        for (int i = mondayBasedFirst - 1; i >= 0; i--) {
+            int dayNum = prevMonthDays - i;
+            Calendar dayCheck = Calendar.getInstance();
+            dayCheck.set(prevYear, prevMonthNum, dayNum, 0, 0, 0);
+            dayCheck.set(Calendar.MILLISECOND, 0);
+            boolean isPast = dayCheck.before(today);
+            days.add(new CalendarDay(dayNum, prevMonthNum, prevYear, false, false, false, isPast));
         }
 
-        // Add current month's days
+        // Add current month days
         int daysInMonth = calendar.getActualMaximum(Calendar.DAY_OF_MONTH);
-        for (int i = 1; i <= daysInMonth; i++) {
-            boolean isToday = (i == todayDay && month == todayMonth && year == todayYear);
-            boolean isTomorrow = (i == tomorrowDay && month == tomorrowMonth && year == tomorrowYear);
+        for (int day = 1; day <= daysInMonth; day++) {
+            boolean isToday = (day == todayDay && month == todayMonth && year == todayYear);
+            boolean isTomorrow = (day == tomorrowDay && month == tomorrowMonth && year == tomorrowYear);
 
             Calendar dayCheck = Calendar.getInstance();
-            dayCheck.set(year, month, i, 0, 0, 0);
+            dayCheck.set(year, month, day, 0, 0, 0);
             dayCheck.set(Calendar.MILLISECOND, 0);
-            boolean isPast = dayCheck.before(today) && !isToday;
-            days.add(new CalendarDay(i, month, year, true, isToday, isTomorrow, isPast));
+            boolean isPast = dayCheck.before(today);
+
+            days.add(new CalendarDay(day, month, year, true, isToday, isTomorrow, isPast));
         }
 
         // Add next month's leading days
@@ -195,23 +189,23 @@ public class CalendarAdapter extends RecyclerView.Adapter<CalendarAdapter.Calend
             holder.dayNumber.setTextColor(Color.WHITE);
         }
 
-        // Show note indicator - FIXED LOGIC (from old code but improved)
+        // Show note indicator - ENHANCED LOGIC for everyday vs specific tasks
         String dateKey = day.getDateKey();
-        boolean hasNotes = !day.isPast && notesCountMap != null &&
+        boolean hasSpecificNotes = !day.isPast && notesCountMap != null &&
                 notesCountMap.containsKey(dateKey) && notesCountMap.get(dateKey) > 0;
-        boolean hasRecurring = !day.isPast && recurringDates != null &&
+        boolean hasEverydayTasks = !day.isPast && recurringDates != null &&
                 recurringDates.contains(dateKey);
 
-        if (hasNotes || hasRecurring) {
+        if (hasSpecificNotes || hasEverydayTasks) {
             holder.noteIndicator.setVisibility(View.VISIBLE);
 
-            // FIXED: Use RECURRING as priority (like old code)
-            if (hasRecurring) {
-                // Recurring reminders -> BLUE
-                holder.noteIndicator.setBackgroundResource(R.drawable.recurring_indicator_dot);
-            } else {
-                // Specific tasks -> ORANGE
+            // PRIORITY: Specific tasks (orange) > Everyday tasks (blue)
+            if (hasSpecificNotes) {
+                // Specific tasks with date/time -> ORANGE (higher priority)
                 holder.noteIndicator.setBackgroundResource(R.drawable.note_indicator_dot);
+            } else if (hasEverydayTasks) {
+                // Everyday category tasks -> BLUE (recurring)
+                holder.noteIndicator.setBackgroundResource(R.drawable.recurring_indicator_dot);
             }
         } else {
             holder.noteIndicator.setVisibility(View.GONE);

@@ -198,13 +198,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     }
 
     public void deleteAllNotes() {
-        SQLiteDatabase db = this.getWritableDatabase();
-        // Move all non-deleted notes to trash
-        ContentValues values = new ContentValues();
-        values.put(COLUMN_IS_DELETED, 1);
-        values.put(COLUMN_DELETED_AT, System.currentTimeMillis());
-        db.update(TABLE_NOTES, values, COLUMN_IS_DELETED + " = 0", null);
-        db.close();
+        moveAllToTrash(); // Use soft delete by default
     }
 
     // ===== TRASH FUNCTIONALITY =====
@@ -244,6 +238,16 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         db.close();
     }
 
+    // NEW: Move all active notes to trash
+    public void moveAllToTrash() {
+        SQLiteDatabase db = this.getWritableDatabase();
+        ContentValues values = new ContentValues();
+        values.put(COLUMN_IS_DELETED, 1);
+        values.put(COLUMN_DELETED_AT, System.currentTimeMillis());
+        db.update(TABLE_NOTES, values, COLUMN_IS_DELETED + " = 0", null);
+        db.close();
+    }
+
     public void permanentlyDeleteNote(int id) {
         SQLiteDatabase db = this.getWritableDatabase();
         db.delete(TABLE_NOTES, COLUMN_ID + " = ?", new String[]{String.valueOf(id)});
@@ -256,243 +260,181 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         db.close();
     }
 
-    public int cleanupOldTrashNotes(int daysToKeep) {
-        long cutoffTime = System.currentTimeMillis() - (daysToKeep * 24L * 60L * 60L * 1000L);
+    // NEW: Get count of notes in trash
+    public int getTrashCount() {
+        SQLiteDatabase db = this.getReadableDatabase();
+        String sql = "SELECT COUNT(*) FROM " + TABLE_NOTES + " WHERE " + COLUMN_IS_DELETED + " = 1";
+        Cursor c = db.rawQuery(sql, null);
+        int count = 0;
+        if (c.moveToFirst()) {
+            count = c.getInt(0);
+        }
+        c.close();
+        db.close();
+        return count;
+    }
+
+    // NEW: Cleanup old trash notes (older than specified days)
+    public int cleanupOldTrashNotes(int daysOld) {
         SQLiteDatabase db = this.getWritableDatabase();
 
+        // Calculate the cutoff time (daysOld days ago)
+        long cutoffTime = System.currentTimeMillis() - (daysOld * 24L * 60L * 60L * 1000L);
+
+        // Delete notes that were moved to trash before the cutoff time
         int deletedCount = db.delete(TABLE_NOTES,
                 COLUMN_IS_DELETED + " = 1 AND " + COLUMN_DELETED_AT + " < ?",
                 new String[]{String.valueOf(cutoffTime)});
 
         db.close();
-        return deletedCount; // Return how many notes were actually deleted
+        return deletedCount;
     }
 
-    public void moveAllToTrash() {
-        SQLiteDatabase db = this.getWritableDatabase();
-        ContentValues values = new ContentValues();
-        values.put(COLUMN_IS_DELETED, 1);
-        values.put(COLUMN_DELETED_AT, System.currentTimeMillis());
-        db.update(TABLE_NOTES, values, COLUMN_IS_DELETED + " = 0", null);
-        db.close();
-    }
-
-    public int getTrashCount() {
-        SQLiteDatabase db = this.getReadableDatabase();
-        String sql = "SELECT COUNT(*) FROM " + TABLE_NOTES + " WHERE " + COLUMN_IS_DELETED + "=1";
-        Cursor cursor = db.rawQuery(sql, null);
-        int count = 0;
-        if (cursor.moveToFirst()) {
-            count = cursor.getInt(0);
-        }
-        cursor.close();
-        db.close();
-        return count;
-    }
-
-    // ===== UTILITY METHODS =====
-
-    public int getNotesCount() {
-        SQLiteDatabase db = this.getReadableDatabase();
-        Cursor c = db.rawQuery("SELECT COUNT(*) FROM " + TABLE_NOTES + " WHERE " + COLUMN_IS_DELETED + " = 0", null);
-        int count = 0;
-        if (c != null) {
-            if (c.moveToFirst()) count = c.getInt(0);
-            c.close();
-        }
-        db.close();
-        return count;
-    }
-
-    // ===== CALENDAR & REMINDER FUNCTIONALITY - FIXED BUT ORIGINAL STYLE =====
-
-    public List<Note> getNotesForDate(String dateKey) {
-        List<Note> list = new ArrayList<>();
-        SQLiteDatabase db = this.getReadableDatabase();
-
-        // Get the start and end of the date
-        String[] parts = dateKey.split("-");
-        int year = Integer.parseInt(parts[0]);
-        int month = Integer.parseInt(parts[1]) - 1; // Calendar months are 0-based
-        int day = Integer.parseInt(parts[2]);
-
-        Calendar startOfDay = Calendar.getInstance();
-        startOfDay.set(year, month, day, 0, 0, 0);
-        startOfDay.set(Calendar.MILLISECOND, 0);
-
-        Calendar endOfDay = Calendar.getInstance();
-        endOfDay.set(year, month, day, 23, 59, 59);
-        endOfDay.set(Calendar.MILLISECOND, 999);
-
-        long startTime = startOfDay.getTimeInMillis();
-        long endTime = endOfDay.getTimeInMillis();
-
-        // Get notes with specific reminders for this date
-        String sql = "SELECT * FROM " + TABLE_NOTES +
-                " WHERE " + COLUMN_REMINDER_TIME + " >= ? AND " + COLUMN_REMINDER_TIME + " <= ?" +
-                " AND " + COLUMN_IS_DELETED + " = 0" +
-                " ORDER BY " + COLUMN_REMINDER_TIME + " ASC";
-
-        Cursor c = db.rawQuery(sql, new String[]{String.valueOf(startTime), String.valueOf(endTime)});
-        if (c.moveToFirst()) {
-            do {
-                list.add(readNoteFromCursor(c));
-            } while (c.moveToNext());
-        }
-        c.close();
-
-        // Add recurring notes that should appear on this date (7-day window only)
-        addRecurringNotesForDate(list, dateKey, db);
-
-        db.close();
-        return list;
-    }
-
-    // Overloaded method for convenience - converts year, month, day to date string
-    public List<Note> getNotesForDate(int year, int month, int day) {
-        String dateKey = String.format("%04d-%02d-%02d", year, month + 1, day);
-        return getNotesForDate(dateKey);
-    }
-
-    private void addRecurringNotesForDate(List<Note> list, String dateKey, SQLiteDatabase db) {
-        // Parse the target date
-        String[] parts = dateKey.split("-");
-        int targetYear = Integer.parseInt(parts[0]);
-        int targetMonth = Integer.parseInt(parts[1]) - 1; // 0-based
-        int targetDay = Integer.parseInt(parts[2]);
-
-        Calendar targetDate = Calendar.getInstance();
-        targetDate.set(targetYear, targetMonth, targetDay);
-        int targetDayOfWeek = targetDate.get(Calendar.DAY_OF_WEEK);
-
-        // Get today's date for 7-day window check
-        Calendar today = Calendar.getInstance();
-        today.set(Calendar.HOUR_OF_DAY, 0);
-        today.set(Calendar.MINUTE, 0);
-        today.set(Calendar.SECOND, 0);
-        today.set(Calendar.MILLISECOND, 0);
-
-        // Calculate 7 days from today
-        Calendar sevenDaysFromToday = (Calendar) today.clone();
-        sevenDaysFromToday.add(Calendar.DAY_OF_MONTH, 7);
-
-        // Only show recurring notes if target date is within the next 7 days
-        if (targetDate.before(today) || targetDate.after(sevenDaysFromToday)) {
-            return; // Don't show recurring notes outside the 7-day window
-        }
-
-        String sql = "SELECT * FROM " + TABLE_NOTES +
-                " WHERE " + COLUMN_REPEAT_DAYS + " > 0 AND " + COLUMN_IS_DELETED + " = 0";
-
-        Cursor c = db.rawQuery(sql, null);
-        if (c.moveToFirst()) {
-            do {
-                int repeatDays = c.getInt(c.getColumnIndexOrThrow(COLUMN_REPEAT_DAYS));
-                int bitIndex = convertDayOfWeekToBitIndex(targetDayOfWeek);
-
-                // Check if this recurring note should appear on the target day
-                if ((repeatDays & (1 << bitIndex)) != 0) {
-                    Note recurringNote = readNoteFromCursor(c);
-                    list.add(recurringNote);
-                }
-            } while (c.moveToNext());
-        }
-        c.close();
-    }
+    // ===== CALENDAR FUNCTIONS =====
 
     public Map<String, Integer> getNotesCountForMonth(int year, int month) {
         Map<String, Integer> dateCountMap = new HashMap<>();
         SQLiteDatabase db = this.getReadableDatabase();
 
-        // Calculate start and end of month
-        Calendar startOfMonth = Calendar.getInstance();
-        startOfMonth.set(year, month, 1, 0, 0, 0);
-        startOfMonth.set(Calendar.MILLISECOND, 0);
+        Calendar calendar = Calendar.getInstance();
+        calendar.set(year, month, 1, 0, 0, 0);
+        calendar.set(Calendar.MILLISECOND, 0);
+        long monthStart = calendar.getTimeInMillis();
 
-        Calendar endOfMonth = Calendar.getInstance();
-        endOfMonth.set(year, month + 1, 1, 0, 0, 0);
-        endOfMonth.add(Calendar.MILLISECOND, -1);
+        calendar.add(Calendar.MONTH, 1);
+        calendar.add(Calendar.MILLISECOND, -1);
+        long monthEnd = calendar.getTimeInMillis();
 
-        long startTime = startOfMonth.getTimeInMillis();
-        long endTime = endOfMonth.getTimeInMillis();
-
-        // Query notes with reminders in this month
+        // Get specific date notes (non-everyday category notes with specific reminder times)
         String sql = "SELECT " + COLUMN_REMINDER_TIME + " FROM " + TABLE_NOTES +
-                " WHERE " + COLUMN_REMINDER_TIME + " >= ? AND " + COLUMN_REMINDER_TIME + " <= ?" +
-                " AND " + COLUMN_IS_DELETED + " = 0";
+                " WHERE " + COLUMN_IS_DELETED + "=0" +
+                " AND " + COLUMN_IS_COMPLETED + "=0" +
+                " AND " + COLUMN_REMINDER_TIME + " BETWEEN ? AND ?" +
+                " AND " + COLUMN_CATEGORY + " != 'everyday'"; // Exclude everyday category
 
-        Cursor c = db.rawQuery(sql, new String[]{String.valueOf(startTime), String.valueOf(endTime)});
+        Cursor c = db.rawQuery(sql, new String[]{
+                String.valueOf(monthStart),
+                String.valueOf(monthEnd)
+        });
+
         if (c.moveToFirst()) {
             do {
                 long reminderTime = c.getLong(0);
                 if (reminderTime > 0) {
-                    Calendar reminderCal = Calendar.getInstance();
-                    reminderCal.setTimeInMillis(reminderTime);
-
+                    Calendar reminderDate = Calendar.getInstance();
+                    reminderDate.setTimeInMillis(reminderTime);
                     String dateKey = String.format("%04d-%02d-%02d",
-                            reminderCal.get(Calendar.YEAR),
-                            reminderCal.get(Calendar.MONTH) + 1,
-                            reminderCal.get(Calendar.DAY_OF_MONTH));
-
+                            reminderDate.get(Calendar.YEAR),
+                            reminderDate.get(Calendar.MONTH) + 1,
+                            reminderDate.get(Calendar.DAY_OF_MONTH));
                     dateCountMap.put(dateKey, dateCountMap.getOrDefault(dateKey, 0) + 1);
                 }
             } while (c.moveToNext());
         }
         c.close();
-
-        // Add recurring notes (ONLY for the next 7 days from today)
-        addRecurringNotesCount(dateCountMap, year, month, db);
-
         db.close();
         return dateCountMap;
     }
 
-    private void addRecurringNotesCount(Map<String, Integer> dateCountMap, int year, int month, SQLiteDatabase db) {
+    public List<Note> getNotesForDate(int year, int month, int day) {
+        List<Note> notes = new ArrayList<>();
+        SQLiteDatabase db = this.getReadableDatabase();
+
+        Calendar dayStart = Calendar.getInstance();
+        dayStart.set(year, month, day, 0, 0, 0);
+        dayStart.set(Calendar.MILLISECOND, 0);
+        long startTime = dayStart.getTimeInMillis();
+
+        Calendar dayEnd = Calendar.getInstance();
+        dayEnd.set(year, month, day, 23, 59, 59);
+        dayEnd.set(Calendar.MILLISECOND, 999);
+        long endTime = dayEnd.getTimeInMillis();
+
+        // Get specific date notes (non-everyday category)
+        String sql = "SELECT * FROM " + TABLE_NOTES +
+                " WHERE " + COLUMN_IS_DELETED + "=0" +
+                " AND " + COLUMN_IS_COMPLETED + "=0" +
+                " AND " + COLUMN_REMINDER_TIME + " BETWEEN ? AND ?" +
+                " AND " + COLUMN_CATEGORY + " != 'everyday'" +
+                " ORDER BY " + COLUMN_REMINDER_TIME + " ASC";
+
+        Cursor c = db.rawQuery(sql, new String[]{
+                String.valueOf(startTime),
+                String.valueOf(endTime)
+        });
+
+        if (c.moveToFirst()) {
+            do {
+                notes.add(readNoteFromCursor(c));
+            } while (c.moveToNext());
+        }
+        c.close();
+
+        // Add everyday category notes that should appear on this date
+        List<Note> everydayNotes = getEverydayNotesForDate(year, month, day);
+        notes.addAll(everydayNotes);
+
+        db.close();
+        return notes;
+    }
+
+    // NEW: Get everyday category notes that should appear on a specific date
+    private List<Note> getEverydayNotesForDate(int year, int month, int day) {
+        List<Note> everydayNotes = new ArrayList<>();
+        SQLiteDatabase db = this.getReadableDatabase();
+
+        // Only show everyday tasks for the next 7 days
+        Calendar targetDate = Calendar.getInstance();
+        targetDate.set(year, month, day, 0, 0, 0);
+        targetDate.set(Calendar.MILLISECOND, 0);
+
         Calendar today = Calendar.getInstance();
         today.set(Calendar.HOUR_OF_DAY, 0);
         today.set(Calendar.MINUTE, 0);
         today.set(Calendar.SECOND, 0);
         today.set(Calendar.MILLISECOND, 0);
 
-        // Only show recurring notes for the next 7 days
-        Calendar sevenDaysFromToday = (Calendar) today.clone();
-        sevenDaysFromToday.add(Calendar.DAY_OF_MONTH, 7);
+        Calendar sevenDaysFromNow = (Calendar) today.clone();
+        sevenDaysFromNow.add(Calendar.DAY_OF_MONTH, 6); // Today + 6 more days = 7 days total
 
-        String sql = "SELECT " + COLUMN_REPEAT_DAYS + " FROM " + TABLE_NOTES +
-                " WHERE " + COLUMN_REPEAT_DAYS + " > 0 AND " + COLUMN_IS_DELETED + " = 0";
+        // Don't show everyday tasks for dates outside the next 7 days
+        if (targetDate.before(today) || targetDate.after(sevenDaysFromNow)) {
+            return everydayNotes;
+        }
+
+        // Get all active everyday category notes
+        String sql = "SELECT * FROM " + TABLE_NOTES +
+                " WHERE " + COLUMN_IS_DELETED + "=0" +
+                " AND " + COLUMN_IS_COMPLETED + "=0" +
+                " AND " + COLUMN_CATEGORY + " = 'everyday'";
 
         Cursor c = db.rawQuery(sql, null);
         if (c.moveToFirst()) {
             do {
-                int repeatDays = c.getInt(0);
+                Note note = readNoteFromCursor(c);
 
-                // Check each day in the 7-day window
-                Calendar checkDate = (Calendar) today.clone();
-                for (int i = 0; i < 7; i++) {
-                    // Only add if the date is in the requested month
-                    if (checkDate.get(Calendar.YEAR) == year && checkDate.get(Calendar.MONTH) == month) {
-                        int dayOfWeek = checkDate.get(Calendar.DAY_OF_WEEK);
-                        int bitIndex = convertDayOfWeekToBitIndex(dayOfWeek);
-
-                        if ((repeatDays & (1 << bitIndex)) != 0) {
-                            String dateKey = String.format("%04d-%02d-%02d",
-                                    checkDate.get(Calendar.YEAR),
-                                    checkDate.get(Calendar.MONTH) + 1,
-                                    checkDate.get(Calendar.DAY_OF_MONTH));
-
-                            dateCountMap.put(dateKey, dateCountMap.getOrDefault(dateKey, 0) + 1);
-                        }
-                    }
-                    checkDate.add(Calendar.DAY_OF_MONTH, 1);
+                // Check if this everyday note should appear on the given date
+                if (shouldEverydayNoteAppearOnDate(note, year, month, day)) {
+                    everydayNotes.add(note);
                 }
             } while (c.moveToNext());
         }
         c.close();
+        return everydayNotes;
     }
 
-    public Set<String> getRecurringDates(int startYear, int startMonth, int endYear, int endMonth) {
-        Set<String> recurringDates = new HashSet<>();
-        SQLiteDatabase db = this.getReadableDatabase();
+    // NEW: Check if an everyday note should appear on a specific date (only next 7 days from creation)
+    private boolean shouldEverydayNoteAppearOnDate(Note note, int year, int month, int day) {
+        Calendar createdDate = Calendar.getInstance();
+        createdDate.setTimeInMillis(note.getCreatedAt());
+        createdDate.set(Calendar.HOUR_OF_DAY, 0);
+        createdDate.set(Calendar.MINUTE, 0);
+        createdDate.set(Calendar.SECOND, 0);
+        createdDate.set(Calendar.MILLISECOND, 0);
+
+        Calendar targetDate = Calendar.getInstance();
+        targetDate.set(year, month, day, 0, 0, 0);
+        targetDate.set(Calendar.MILLISECOND, 0);
 
         Calendar today = Calendar.getInstance();
         today.set(Calendar.HOUR_OF_DAY, 0);
@@ -500,45 +442,109 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         today.set(Calendar.SECOND, 0);
         today.set(Calendar.MILLISECOND, 0);
 
-        // Only show recurring notes for the next 7 days
-        Calendar sevenDaysFromToday = (Calendar) today.clone();
-        sevenDaysFromToday.add(Calendar.DAY_OF_MONTH, 7);
+        // Only show for the next 7 days from today (including today)
+        Calendar sevenDaysFromNow = (Calendar) today.clone();
+        sevenDaysFromNow.add(Calendar.DAY_OF_MONTH, 6); // Today + 6 more days = 7 days total
 
-        String sql = "SELECT " + COLUMN_REPEAT_DAYS +
-                " FROM " + TABLE_NOTES +
-                " WHERE " + COLUMN_REPEAT_DAYS + " > 0 AND " + COLUMN_IS_DELETED + " = 0";
+        // Don't show for past dates or dates more than 7 days in the future
+        if (targetDate.before(today) || targetDate.after(sevenDaysFromNow)) {
+            return false;
+        }
+
+        // Don't show before creation date
+        if (targetDate.before(createdDate)) {
+            return false;
+        }
+
+        // Calculate days difference from creation
+        long diffInMillis = targetDate.getTimeInMillis() - createdDate.getTimeInMillis();
+        long daysDiff = diffInMillis / (24 * 60 * 60 * 1000);
+
+        // Show every 7 days starting from creation date (0, 7, 14, 21, etc.)
+        return daysDiff >= 0 && daysDiff % 7 == 0;
+    }
+
+    // NEW: Get recurring dates including everyday category (ONLY next 7 days from today)
+    public Set<String> getRecurringDates(int startYear, int startMonth, int endYear, int endMonth) {
+        Set<String> recurringDates = new HashSet<>();
+        SQLiteDatabase db = this.getReadableDatabase();
+
+        // Get traditional recurring notes (repeat_days > 0)
+        String sql = "SELECT * FROM " + TABLE_NOTES +
+                " WHERE " + COLUMN_IS_DELETED + "=0" +
+                " AND " + COLUMN_IS_COMPLETED + "=0" +
+                " AND " + COLUMN_REPEAT_DAYS + " > 0";
 
         Cursor c = db.rawQuery(sql, null);
         if (c.moveToFirst()) {
             do {
-                int repeatDays = c.getInt(0);
+                Note note = readNoteFromCursor(c);
+                long reminderTime = note.getReminderTime();
+                if (reminderTime > 0) {
+                    Calendar reminderDate = Calendar.getInstance();
+                    reminderDate.setTimeInMillis(reminderTime);
+                    int repeatDays = note.getRepeatDays();
 
-                // Check each day in the 7-day window
-                Calendar checkDate = (Calendar) today.clone();
-                for (int i = 0; i < 7; i++) {
-                    int dayOfWeek = checkDate.get(Calendar.DAY_OF_WEEK);
-                    int bitIndex = convertDayOfWeekToBitIndex(dayOfWeek);
+                    Calendar checkDate = Calendar.getInstance();
+                    checkDate.set(startYear, startMonth, 1);
+                    Calendar endDate = Calendar.getInstance();
+                    endDate.set(endYear, endMonth + 1, 1);
 
-                    if ((repeatDays & (1 << bitIndex)) != 0) {
-                        // Only add if the date is within the requested month range
-                        int checkYear = checkDate.get(Calendar.YEAR);
-                        int checkMonth = checkDate.get(Calendar.MONTH);
-
-                        if ((checkYear > startYear || (checkYear == startYear && checkMonth >= startMonth)) &&
-                                (checkYear < endYear || (checkYear == endYear && checkMonth <= endMonth))) {
-
+                    while (checkDate.before(endDate)) {
+                        int dayOfWeek = convertDayOfWeekToBitIndex(checkDate.get(Calendar.DAY_OF_WEEK));
+                        if ((repeatDays & (1 << dayOfWeek)) != 0) {
+                            int checkYear = checkDate.get(Calendar.YEAR);
+                            int checkMonth = checkDate.get(Calendar.MONTH);
                             String dateKey = String.format("%04d-%02d-%02d",
                                     checkYear,
                                     checkMonth + 1,
                                     checkDate.get(Calendar.DAY_OF_MONTH));
                             recurringDates.add(dateKey);
                         }
+                        checkDate.add(Calendar.DAY_OF_MONTH, 1);
                     }
-                    checkDate.add(Calendar.DAY_OF_MONTH, 1);
                 }
             } while (c.moveToNext());
         }
         c.close();
+
+        // NEW: Add everyday category recurring dates (ONLY for next 7 days from TODAY)
+        Calendar today = Calendar.getInstance();
+        today.set(Calendar.HOUR_OF_DAY, 0);
+        today.set(Calendar.MINUTE, 0);
+        today.set(Calendar.SECOND, 0);
+        today.set(Calendar.MILLISECOND, 0);
+
+        Calendar sevenDaysFromNow = (Calendar) today.clone();
+        sevenDaysFromNow.add(Calendar.DAY_OF_MONTH, 6); // Today + 6 more days = 7 days total
+
+        String everydaySql = "SELECT * FROM " + TABLE_NOTES +
+                " WHERE " + COLUMN_IS_DELETED + "=0" +
+                " AND " + COLUMN_IS_COMPLETED + "=0" +
+                " AND " + COLUMN_CATEGORY + " = 'everyday'";
+
+        Cursor everydayCursor = db.rawQuery(everydaySql, null);
+        if (everydayCursor.moveToFirst()) {
+            do {
+                Note note = readNoteFromCursor(everydayCursor);
+
+                Calendar checkDate = (Calendar) today.clone();
+
+                // Check each day for the next 7 days only (today + 6 more days)
+                for (int i = 0; i < 7; i++) {
+                    if (shouldEverydayNoteAppearOnDate(note, checkDate.get(Calendar.YEAR),
+                            checkDate.get(Calendar.MONTH), checkDate.get(Calendar.DAY_OF_MONTH))) {
+                        String dateKey = String.format("%04d-%02d-%02d",
+                                checkDate.get(Calendar.YEAR),
+                                checkDate.get(Calendar.MONTH) + 1,
+                                checkDate.get(Calendar.DAY_OF_MONTH));
+                        recurringDates.add(dateKey);
+                    }
+                    checkDate.add(Calendar.DAY_OF_MONTH, 1);
+                }
+            } while (everydayCursor.moveToNext());
+        }
+        everydayCursor.close();
         db.close();
 
         return recurringDates;

@@ -1,13 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:background="@color/background"
-    tools:context=".AddEditNoteActivity">
+    android:background="@color/background">
 
+    <!-- Toolbar -->
     <com.google.android.material.appbar.AppBarLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -24,140 +23,158 @@
 
     </com.google.android.material.appbar.AppBarLayout>
 
+    <!-- Main Content -->
     <ScrollView
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
-        android:fillViewport="true"
-        android:scrollbars="none">
+        android:fillViewport="true">
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:padding="20dp">
+            android:padding="16dp">
 
-            <!-- Main Content Card -->
+            <!-- Title Card -->
             <androidx.cardview.widget.CardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="20dp"
-                app:cardCornerRadius="20dp"
-                app:cardElevation="0dp"
-                app:cardBackgroundColor="@color/card_background">
+                android:layout_marginBottom="12dp"
+                app:cardCornerRadius="12dp"
+                app:cardElevation="2dp"
+                app:cardBackgroundColor="@color/surface">
 
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="vertical"
-                    android:padding="24dp">
+                    android:padding="16dp">
 
-                    <!-- Title Section with Clean Styling -->
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="Заголовок"
-                        android:textColor="@color/text_primary"
-                        android:textSize="14sp"
-                        android:textStyle="bold"
-                        android:layout_marginBottom="8dp" />
-
-                    <com.google.android.material.textfield.TextInputLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginBottom="24dp"
-                        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
-                        app:boxStrokeColor="@color/colorPrimary"
-                        app:hintTextColor="@color/colorPrimary"
-                        app:boxStrokeWidth="2dp"
-                        app:boxCornerRadiusTopStart="12dp"
-                        app:boxCornerRadiusTopEnd="12dp"
-                        app:boxCornerRadiusBottomStart="12dp"
-                        app:boxCornerRadiusBottomEnd="12dp">
-
-                        <com.google.android.material.textfield.TextInputEditText
-                            android:id="@+id/editTitle"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:textColorHighlight="@color/warning_color"
-                            android:textColorHint="@color/text_primary"
-                            android:hint="Введите заголовок заметки"
-                            android:inputType="textCapSentences"
-                            android:maxLines="2"
-                            android:textSize="18sp"
-                            android:textStyle="bold"
-                            android:textColor="@color/text_primary"
-                            android:padding="16dp"
-                            android:background="@android:color/transparent" />
-
-                    </com.google.android.material.textfield.TextInputLayout>
-
-
-                    <!-- Content Section with Clean Styling -->
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="Содержание"
-                        android:textColor="@color/text_primary"
-                        android:textSize="14sp"
-                        android:textStyle="bold"
-                        android:layout_marginBottom="8dp" />
-
-                    <com.google.android.material.textfield.TextInputLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
-                        app:boxStrokeColor="@color/colorPrimary"
-                        app:hintTextColor="@color/colorPrimary"
-                        app:boxStrokeWidth="2dp"
-                        app:boxCornerRadiusTopStart="12dp"
-                        app:boxCornerRadiusTopEnd="12dp"
-                        app:boxCornerRadiusBottomStart="12dp"
-                        app:boxCornerRadiusBottomEnd="12dp">
-
-                        <com.google.android.material.textfield.TextInputEditText
-                            android:id="@+id/editContent"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:textColorHint="@color/colorPrimary"
-                            android:hint="Введите содержание заметки"
-                            android:inputType="textMultiLine|textCapSentences"
-                            android:minLines="6"
-                            android:gravity="top"
-                            android:textSize="16sp"
-                            android:textColor="@color/text_primary"
-                            android:lineSpacingExtra="2dp"
-                            android:padding="16dp"
-                            android:background="@android:color/transparent" />
-
-                    </com.google.android.material.textfield.TextInputLayout>
-
-                </LinearLayout>
-
-            </androidx.cardview.widget.CardView>
-
-            <!-- Reminder & Settings Card -->
-            <androidx.cardview.widget.CardView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginBottom="20dp"
-                app:cardCornerRadius="20dp"
-                app:cardElevation="0dp"
-                app:cardBackgroundColor="@color/card_background">
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    android:padding="24dp">
-
-                    <!-- Reminder Section Header -->
+                    <!-- Title Header -->
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:orientation="horizontal"
                         android:gravity="center_vertical"
-                        android:layout_marginBottom="16dp">
+                        android:layout_marginBottom="12dp">
+
+                        <ImageView
+                            android:layout_width="20dp"
+                            android:layout_height="20dp"
+                            android:src="@drawable/ic_edit"
+                            android:tint="@color/colorPrimary"
+                            android:layout_marginEnd="8dp" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Заголовок"
+                            android:textColor="@color/text_primary"
+                            android:textSize="16sp"
+                            android:textStyle="bold" />
+
+                    </LinearLayout>
+
+                    <!-- Title Input -->
+                    <EditText
+                        android:id="@+id/editTitle"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:hint="Введите заголовок заметки"
+                        android:textSize="18sp"
+                        android:textColor="@color/text_primary"
+                        android:textColorHint="@color/text_secondary"
+                        android:background="@android:color/transparent"
+                        android:padding="8dp"
+                        android:maxLines="2"
+                        android:inputType="textCapSentences" />
+
+                </LinearLayout>
+
+            </androidx.cardview.widget.CardView>
+
+            <!-- Content Card -->
+            <androidx.cardview.widget.CardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="12dp"
+                app:cardCornerRadius="12dp"
+                app:cardElevation="2dp"
+                app:cardBackgroundColor="@color/surface">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <!-- Content Header -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical"
+                        android:layout_marginBottom="12dp">
+
+                        <ImageView
+                            android:layout_width="20dp"
+                            android:layout_height="20dp"
+                            android:src="@drawable/ic_description"
+                            android:tint="@color/colorPrimary"
+                            android:layout_marginEnd="8dp" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Содержание"
+                            android:textColor="@color/text_primary"
+                            android:textSize="16sp"
+                            android:textStyle="bold" />
+
+                    </LinearLayout>
+
+                    <!-- Content Input -->
+                    <EditText
+                        android:id="@+id/editContent"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:hint="Введите содержание заметки"
+                        android:textSize="16sp"
+                        android:textColor="@color/text_primary"
+                        android:textColorHint="@color/text_secondary"
+                        android:background="@android:color/transparent"
+                        android:padding="8dp"
+                        android:minLines="3"
+                        android:gravity="top"
+                        android:inputType="textCapSentences|textMultiLine" />
+
+                </LinearLayout>
+
+            </androidx.cardview.widget.CardView>
+
+            <!-- Reminder Card - MOVED BEFORE CATEGORY AS PER USER REQUEST -->
+            <androidx.cardview.widget.CardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="12dp"
+                app:cardCornerRadius="12dp"
+                app:cardElevation="2dp"
+                app:cardBackgroundColor="@color/surface">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <!-- Reminder Header -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical"
+                        android:layout_marginBottom="12dp">
 
                         <ImageView
                             android:layout_width="20dp"
@@ -216,19 +233,19 @@
                                 android:layout_width="0dp"
                                 android:layout_height="wrap_content"
                                 android:layout_weight="1"
+                                android:textColor="@color/text_primary"
                                 android:textSize="14sp"
-                                android:textColor="@color/colorAccent"
-                                android:textStyle="bold" />
+                                android:textStyle="bold"
+                                android:visibility="gone" />
 
                             <ImageButton
                                 android:id="@+id/btnClearReminder"
-                                android:layout_width="32dp"
-                                android:layout_height="32dp"
+                                android:layout_width="36dp"
+                                android:layout_height="36dp"
                                 android:src="@drawable/ic_clear"
                                 android:background="?attr/selectableItemBackgroundBorderless"
-                                android:padding="6dp"
-                                android:tint="@color/colorAccent"
-                                android:contentDescription="Удалить напоминание" />
+                                android:tint="@color/text_secondary"
+                                android:visibility="gone" />
 
                         </LinearLayout>
 
@@ -236,23 +253,32 @@
                             android:id="@+id/textRepeatDays"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:layout_marginTop="8dp"
-                            android:textColor="@color/colorAccent"
-                            android:textSize="13sp"
-                            android:textStyle="bold"
+                            android:textColor="@color/text_secondary"
+                            android:textSize="12sp"
                             android:visibility="gone" />
 
                     </LinearLayout>
 
-                    <!-- Divider -->
-                    <View
-                        android:layout_width="match_parent"
-                        android:layout_height="1dp"
-                        android:layout_marginVertical="16dp"
-                        android:background="@color/divider_color"
-                        android:alpha="0.3" />
+                </LinearLayout>
 
-                    <!-- Category Section -->
+            </androidx.cardview.widget.CardView>
+
+            <!-- Category Card -->
+            <androidx.cardview.widget.CardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="12dp"
+                app:cardCornerRadius="12dp"
+                app:cardElevation="2dp"
+                app:cardBackgroundColor="@color/surface">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <!-- Category Header -->
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
@@ -371,6 +397,24 @@
                             app:checkedIconVisible="true"
                             app:checkedIcon="@drawable/ic_check"
                             app:checkedIconTint="@color/category_other" />
+
+                        <!-- NEW: Everyday Category Chip -->
+                        <com.google.android.material.chip.Chip
+                            android:id="@+id/chipEveryday"
+                            style="@style/Widget.MaterialComponents.Chip.Choice"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Ежедневно"
+                            android:textColor="@color/recurring_indicator_color"
+                            android:textSize="13sp"
+                            android:textStyle="bold"
+                            app:chipBackgroundColor="@android:color/transparent"
+                            app:chipStrokeColor="@color/recurring_indicator_color"
+                            app:chipStrokeWidth="2dp"
+                            app:chipCornerRadius="18dp"
+                            app:checkedIconVisible="true"
+                            app:checkedIcon="@drawable/ic_check"
+                            app:checkedIconTint="@color/recurring_indicator_color" />
 
                     </com.google.android.material.chip.ChipGroup>
 

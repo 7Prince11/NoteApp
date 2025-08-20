@@ -1,9 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<resources>
-    <color name="category_work">#2196F3</color>     <!-- Blue -->
-    <color name="category_personal">#9C27B0</color> <!-- Purple -->
-    <color name="category_family">#4CAF50</color>   <!-- Green -->
-    <color name="category_errand">#FF9800</color>   <!-- Orange -->
-    <color name="category_other">#607D8B</color>    <!-- Blue Grey -->
-    <color name="category_college">#0F27D3</color>  <!-- Navy blue -->
-</resources>

@@ -75,43 +75,16 @@ public class TrashAdapter extends RecyclerView.Adapter<TrashAdapter.TrashViewHol
             holder.textDeletedDate.setVisibility(View.GONE);
         }
 
-        // Calculate days until auto-delete (if applicable)
-        if (note.getDeletedAt() > 0) {
-            // Get user preference for auto-delete days
-            android.content.SharedPreferences prefs = context.getSharedPreferences("NotesAppPrefs", Context.MODE_PRIVATE);
-            int trashDays = prefs.getInt("trash_auto_delete_days", 30);
-
-            if (trashDays > 0) {
-                long deleteTime = note.getDeletedAt() + (trashDays * 24L * 60L * 60L * 1000L);
-                long timeLeft = deleteTime - System.currentTimeMillis();
-                long daysLeft = timeLeft / (24L * 60L * 60L * 1000L);
-
-                if (daysLeft > 0) {
-                    holder.textAutoDelete.setText("Автоудаление через: " + daysLeft + " дн.");
-                    holder.textAutoDelete.setVisibility(View.VISIBLE);
-                    if (daysLeft <= 3) {
-                        holder.textAutoDelete.setTextColor(ContextCompat.getColor(context, R.color.delete_color));
-                    } else {
-                        holder.textAutoDelete.setTextColor(ContextCompat.getColor(context, R.color.text_secondary));
-                    }
-                } else {
-                    holder.textAutoDelete.setText("Будет удалено автоматически");
-                    holder.textAutoDelete.setTextColor(ContextCompat.getColor(context, R.color.delete_color));
-                    holder.textAutoDelete.setVisibility(View.VISIBLE);
-                }
-            } else {
-                holder.textAutoDelete.setVisibility(View.GONE);
-            }
+        // Auto-delete warning (30 days)
+        long daysUntilDelete = 30 - ((System.currentTimeMillis() - note.getDeletedAt()) / (24 * 60 * 60 * 1000));
+        if (daysUntilDelete > 0) {
+            holder.textAutoDelete.setText("Автоудаление через " + daysUntilDelete + " дн.");
+            holder.textAutoDelete.setVisibility(View.VISIBLE);
         } else {
-            holder.textAutoDelete.setVisibility(View.GONE);
+            holder.textAutoDelete.setText("Будет удалено автоматически");
+            holder.textAutoDelete.setVisibility(View.VISIBLE);
         }
 
-        // Grayed out appearance for deleted notes
-        holder.cardView.setAlpha(0.7f);
-        holder.textTitle.setPaintFlags(holder.textTitle.getPaintFlags() | Paint.STRIKE_THRU_TEXT_FLAG);
-        holder.textContent.setPaintFlags(holder.textContent.getPaintFlags() | Paint.STRIKE_THRU_TEXT_FLAG);
-
-        // Button clicks
         holder.btnRestore.setOnClickListener(v -> {
             if (holder.getAdapterPosition() != RecyclerView.NO_POSITION) {
                 onTrashListener.onRestoreClick(holder.getAdapterPosition());
@@ -152,13 +125,14 @@ public class TrashAdapter extends RecyclerView.Adapter<TrashAdapter.TrashViewHol
         }
     }
 
-    // Category helpers
+    // Category helpers - UPDATED with everyday category
     private String displayNameFor(String key) {
         switch (key) {
             case "work":     return "Работа";
             case "family":   return "Семья";
             case "errand":   return "Поручение";
             case "personal": return "Личное";
+            case "everyday": return "Ежедневно"; // NEW
             default:         return "Другое";
         }
     }
@@ -168,6 +142,7 @@ public class TrashAdapter extends RecyclerView.Adapter<TrashAdapter.TrashViewHol
         if ("personal".equals(key)) return ContextCompat.getColor(context, R.color.category_personal);
         if ("family".equals(key))   return ContextCompat.getColor(context, R.color.category_family);
         if ("errand".equals(key))   return ContextCompat.getColor(context, R.color.category_errand);
+        if ("everyday".equals(key)) return ContextCompat.getColor(context, R.color.recurring_indicator_color); // NEW - Blue color
         return ContextCompat.getColor(context, R.color.category_other);
     }
 }

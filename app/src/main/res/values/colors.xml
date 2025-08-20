@@ -33,15 +33,19 @@
     <color name="chip_background">#F5F5F5</color>
     <color name="divider_color">#E0E0E0</color>
 
-    <!-- FINAL FIX: Calendar indicator colors -->
-    <!-- Specific time-based tasks - Orange -->
-    <color name="note_indicator_color">#FF6D00</color>          <!-- Orange as you wanted -->
+    <!-- UPDATED: Calendar indicator colors as per user requirements -->
+    <!-- Specific time-based tasks (high priority) - Orange -->
+    <color name="note_indicator_color">#FF6D00</color>          <!-- Orange for specific date tasks -->
 
-    <!-- Recurring daily reminders - Blue -->
-    <color name="recurring_indicator_color">#2196F3</color>     <!-- Blue for recurring -->
+    <!-- Recurring daily reminders (everyday category) - Blue -->
+    <color name="recurring_indicator_color">#2196F3</color>     <!-- Blue for everyday/recurring tasks -->
 
-    <!-- Remove unused colors -->
-    <!-- <color name="tomorrow_indicator_color"> - REMOVED -->
-    <!-- <color name="mixed_indicator_color"> - REMOVED -->
+    <!-- Category colors -->
+    <color name="category_work">#2196F3</color>     <!-- Blue -->
+    <color name="category_personal">#9C27B0</color> <!-- Purple -->
+    <color name="category_family">#4CAF50</color>   <!-- Green -->
+    <color name="category_errand">#FF9800</color>   <!-- Orange -->
+    <color name="category_other">#607D8B</color>    <!-- Blue Grey -->
+    <color name="category_college">#0F27D3</color>  <!-- Navy blue -->
 
 </resources>
