@@ -304,7 +304,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         return count;
     }
 
-    // ===== CALENDAR & REMINDER FUNCTIONALITY - UPDATED FOR 7-DAY ROLLING WINDOW =====
+    // ===== CALENDAR & REMINDER FUNCTIONALITY - FIXED BUT ORIGINAL STYLE =====
 
     public List<Note> getNotesForDate(String dateKey) {
         List<Note> list = new ArrayList<>();
@@ -341,7 +341,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         }
         c.close();
 
-        // Add recurring notes that should appear on this date
+        // Add recurring notes that should appear on this date (7-day window only)
         addRecurringNotesForDate(list, dateKey, db);
 
         db.close();
@@ -393,7 +393,6 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                 // Check if this recurring note should appear on the target day
                 if ((repeatDays & (1 << bitIndex)) != 0) {
                     Note recurringNote = readNoteFromCursor(c);
-                    // Mark as recurring so UI can show it differently if needed
                     list.add(recurringNote);
                 }
             } while (c.moveToNext());

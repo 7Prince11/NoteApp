@@ -1,7 +1,7 @@
+<!-- REMOVED: No background for today - just use text color in CalendarAdapter -->
+<!-- This file can be empty or removed since we're not using background for today anymore -->
 <shape xmlns:android="http://schemas.android.com/apk/res/android"
     android:shape="oval">
-    <solid android:color="@color/colorPrimary" />
-    <stroke
-        android:width="2dp"
-        android:color="@color/colorAccent" />
+    <!-- Transparent - no background for today -->
+    <solid android:color="@android:color/transparent" />
 </shape>

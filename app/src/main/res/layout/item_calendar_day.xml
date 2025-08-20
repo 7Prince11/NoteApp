@@ -16,12 +16,14 @@
         android:textColor="@color/text_primary"
         android:background="@drawable/calendar_day_background" />
 
+    <!-- Task/Note indicator - made slightly bigger and better positioned -->
     <View
         android:id="@+id/noteIndicator"
-        android:layout_width="6dp"
-        android:layout_height="6dp"
+        android:layout_width="8dp"
+        android:layout_height="8dp"
         android:layout_gravity="top|end"
-        android:layout_margin="4dp"
+        android:layout_marginTop="6dp"
+        android:layout_marginEnd="6dp"
         android:background="@drawable/note_indicator_dot"
         android:visibility="gone" />
 
