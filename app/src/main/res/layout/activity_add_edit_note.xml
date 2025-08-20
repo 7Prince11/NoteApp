@@ -6,7 +6,6 @@
     android:orientation="vertical"
     android:background="@color/background">
 
-    <!-- Toolbar -->
     <com.google.android.material.appbar.AppBarLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -23,7 +22,6 @@
 
     </com.google.android.material.appbar.AppBarLayout>
 
-    <!-- Main Content -->
     <ScrollView
         android:layout_width="match_parent"
         android:layout_height="0dp"
@@ -36,7 +34,6 @@
             android:orientation="vertical"
             android:padding="16dp">
 
-            <!-- Title Card -->
             <androidx.cardview.widget.CardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -51,7 +48,6 @@
                     android:orientation="vertical"
                     android:padding="16dp">
 
-                    <!-- Title Header -->
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
@@ -76,7 +72,6 @@
 
                     </LinearLayout>
 
-                    <!-- Title Input -->
                     <EditText
                         android:id="@+id/editTitle"
                         android:layout_width="match_parent"
@@ -94,7 +89,6 @@
 
             </androidx.cardview.widget.CardView>
 
-            <!-- Content Card -->
             <androidx.cardview.widget.CardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -109,7 +103,6 @@
                     android:orientation="vertical"
                     android:padding="16dp">
 
-                    <!-- Content Header -->
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
@@ -134,7 +127,6 @@
 
                     </LinearLayout>
 
-                    <!-- Content Input -->
                     <EditText
                         android:id="@+id/editContent"
                         android:layout_width="match_parent"
@@ -153,7 +145,6 @@
 
             </androidx.cardview.widget.CardView>
 
-            <!-- Reminder Card - MOVED BEFORE CATEGORY AS PER USER REQUEST -->
             <androidx.cardview.widget.CardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -168,7 +159,6 @@
                     android:orientation="vertical"
                     android:padding="16dp">
 
-                    <!-- Reminder Header -->
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
@@ -193,7 +183,6 @@
 
                     </LinearLayout>
 
-                    <!-- Reminder Chip -->
                     <com.google.android.material.chip.Chip
                         android:id="@+id/chipReminder"
                         style="@style/Widget.MaterialComponents.Chip.Action"
@@ -211,13 +200,13 @@
                         app:chipBackgroundColor="@color/chip_background"
                         app:chipCornerRadius="15dp" />
 
-                    <!-- Reminder Details Container - Only shows when reminder is set -->
+                    <!-- ORANGE highlight block -->
                     <LinearLayout
                         android:id="@+id/reminderDetailsContainer"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:orientation="vertical"
-                        android:background="@drawable/reminder_highlight_background"
+                        android:background="@drawable/compact_reminder_background"
                         android:padding="16dp"
                         android:layout_marginBottom="12dp"
                         android:visibility="gone">
@@ -263,7 +252,6 @@
 
             </androidx.cardview.widget.CardView>
 
-            <!-- Category Card -->
             <androidx.cardview.widget.CardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -278,7 +266,6 @@
                     android:orientation="vertical"
                     android:padding="16dp">
 
-                    <!-- Category Header -->
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
@@ -303,7 +290,6 @@
 
                     </LinearLayout>
 
-                    <!-- Category Chips Container -->
                     <com.google.android.material.chip.ChipGroup
                         android:id="@+id/chipGroupCategory"
                         android:layout_width="match_parent"
@@ -398,7 +384,6 @@
                             app:checkedIcon="@drawable/ic_check"
                             app:checkedIconTint="@color/category_other" />
 
-                        <!-- NEW: Everyday Category Chip -->
                         <com.google.android.material.chip.Chip
                             android:id="@+id/chipEveryday"
                             style="@style/Widget.MaterialComponents.Chip.Choice"
@@ -418,7 +403,6 @@
 
                     </com.google.android.material.chip.ChipGroup>
 
-                    <!-- Hidden Spinner for compatibility -->
                     <Spinner
                         android:id="@+id/spinnerCategory"
                         android:layout_width="0dp"
@@ -429,7 +413,6 @@
 
             </androidx.cardview.widget.CardView>
 
-            <!-- Bottom spacing for FAB -->
             <View
                 android:layout_width="match_parent"
                 android:layout_height="80dp" />
@@ -438,7 +421,6 @@
 
     </ScrollView>
 
-    <!-- Floating Save Button -->
     <com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton
         android:id="@+id/btnSave"
         android:layout_width="wrap_content"

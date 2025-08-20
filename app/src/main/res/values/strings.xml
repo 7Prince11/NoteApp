@@ -14,6 +14,17 @@
     <string name="button_save">Сохранить</string>
     <string name="button_cancel">Отмена</string>
 
+
+    <!-- Day abbreviations for checkboxes -->
+    <string name="monday_short">Пн</string>
+    <string name="tuesday_short">Вт</string>
+    <string name="wednesday_short">Ср</string>
+    <string name="thursday_short">Чт</string>
+    <string name="friday_short">Пт</string>
+    <string name="saturday_short">Сб</string>
+    <string name="sunday_short">Вс</string>
+
+
     <!-- Напоминания -->
     <string name="add_reminder">Добавить напоминание</string>
     <string name="change_reminder">Изменить напоминание</string>
@@ -49,4 +60,32 @@
     <string name="dialog_delete_message">Эта заметка будет удалена безвозвратно.</string>
     <string name="dialog_yes">Да</string>
     <string name="dialog_no">Нет</string>
+
+    <!-- Add these strings to strings.xml -->
+    <string name="advanced_reminder_title">Настройка напоминаний</string>
+    <string name="primary_reminder">Основное напоминание</string>
+    <string name="select_date">Выбрать дату</string>
+    <string name="select_time">Выбрать время</string>
+    <string name="repeat_reminder">Повторение</string>
+    <string name="repeat_reminder_desc">Повторять напоминание</string>
+    <string name="repeat_days">Повторять в дни:</string>
+    <string name="additional_reminders">Дополнительные напоминания</string>
+    <string name="add_extra_reminder">Добавить</string>
+    <string name="no_extra_reminders">Нет дополнительных напоминаний</string>
+    <string name="extra_reminder_dialog_title">Дополнительное напоминание</string>
+    <string name="date_label">Дата:</string>
+    <string name="time_label">Время:</string>
+    <string name="select_date_time">Выберите дату и время</string>
+    <string name="select_future_time">Выберите время в будущем</string>
+    <string name="select_main_reminder">Выберите дату и время для основного напоминания</string>
+
+    <string name="save_reminders">Сохранить</string>
+    <string name="cancel">Отмена</string>
+    <string name="add">Добавить</string>
+    <string name="delete_reminder">Удалить напоминание</string>
+
+
+    <!-- Repeat patterns -->
+    <string name="repeat_pattern">Повтор: %s</string>
+    <string name="every_7_days">(каждые 7 дней)</string>
 </resources>

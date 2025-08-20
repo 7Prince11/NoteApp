@@ -47,5 +47,6 @@
     <color name="category_errand">#FF9800</color>   <!-- Orange -->
     <color name="category_other">#607D8B</color>    <!-- Blue Grey -->
     <color name="category_college">#0F27D3</color>  <!-- Navy blue -->
+    <color name="delete_color">#F44336</color>
 
 </resources>

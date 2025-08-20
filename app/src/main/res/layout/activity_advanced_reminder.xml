@@ -1,0 +1,490 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.coordinatorlayout.widget.CoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/background">
+
+    <com.google.android.material.appbar.AppBarLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:theme="@style/Theme.NotesApp.AppBarOverlay"
+        android:elevation="4dp"
+        >
+
+        <androidx.appcompat.widget.Toolbar
+            android:id="@+id/toolbar"
+            android:layout_width="match_parent"
+            android:layout_height="?attr/actionBarSize"
+
+            app:popupTheme="@style/ThemeOverlay.AppCompat.Light"
+            app:title="Настройка напоминаний"
+            app:titleTextColor="@android:color/white" />
+
+    </com.google.android.material.appbar.AppBarLayout>
+
+    <androidx.core.widget.NestedScrollView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        app:layout_behavior="@string/appbar_scrolling_view_behavior"
+        android:padding="16dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <!-- Header Info -->
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="16dp"
+                app:cardCornerRadius="12dp"
+                app:cardElevation="2dp"
+                app:cardBackgroundColor="@color/surface">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:padding="16dp"
+                    android:gravity="center_vertical">
+
+                    <ImageView
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:src="@drawable/ic_alarm"
+                        android:tint="@color/colorPrimary"
+                        android:layout_marginEnd="12dp" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Создание напоминаний"
+                        android:textColor="@color/text_primary"
+                        android:textSize="18sp"
+                        android:textStyle="bold" />
+
+                </LinearLayout>
+
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- Main Reminder Section -->
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="16dp"
+                app:cardCornerRadius="12dp"
+                app:cardElevation="2dp"
+                app:cardBackgroundColor="@color/surface">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <!-- Primary Reminder Header -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical"
+                        android:layout_marginBottom="16dp">
+
+                        <ImageView
+                            android:layout_width="20dp"
+                            android:layout_height="20dp"
+                            android:src="@drawable/ic_alarm"
+                            android:tint="@color/colorAccent"
+                            android:layout_marginEnd="8dp" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Основное напоминание"
+                            android:textColor="@color/text_primary"
+                            android:textSize="16sp"
+                            android:textStyle="bold" />
+
+                    </LinearLayout>
+
+                    <!-- Date Selection -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:layout_marginBottom="12dp">
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="Дата:"
+                            android:textColor="@color/text_primary"
+                            android:textSize="14sp"
+                            android:gravity="center_vertical" />
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btnSelectDate"
+                            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Выбрать дату"
+                            android:textColor="@color/colorPrimary"
+                            app:strokeColor="@color/colorPrimary"
+                            app:cornerRadius="8dp"
+                            app:icon="@drawable/ic_calendar"
+                            app:iconTint="@color/colorPrimary" />
+
+                    </LinearLayout>
+
+                    <!-- Time Selection -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:layout_marginBottom="16dp">
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="Время:"
+                            android:textColor="@color/text_primary"
+                            android:textSize="14sp"
+                            android:gravity="center_vertical" />
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btnSelectTime"
+                            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Выбрать время"
+                            android:textColor="@color/colorPrimary"
+                            app:strokeColor="@color/colorPrimary"
+                            app:cornerRadius="8dp"
+                            app:icon="@drawable/ic_alarm"
+                            app:iconTint="@color/colorPrimary" />
+
+                    </LinearLayout>
+
+                    <!-- Selected Date/Time Display -->
+                    <TextView
+                        android:id="@+id/textSelectedDateTime"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Не выбрано"
+                        android:textColor="@color/text_secondary"
+                        android:textSize="14sp"
+                        android:background="@drawable/compact_reminder_background"
+                        android:padding="12dp"
+                        android:gravity="center"
+                        android:visibility="gone" />
+
+                </LinearLayout>
+
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- Repeat Options Section -->
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="16dp"
+                app:cardCornerRadius="12dp"
+                app:cardElevation="2dp"
+                app:cardBackgroundColor="@color/surface">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <!-- Repeat Header -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical"
+                        android:layout_marginBottom="12dp">
+
+                        <ImageView
+                            android:layout_width="20dp"
+                            android:layout_height="20dp"
+                            android:src="@drawable/ic_repeat"
+                            android:tint="@color/colorPrimary"
+                            android:layout_marginEnd="8dp" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Повторение"
+                            android:textColor="@color/text_primary"
+                            android:textSize="16sp"
+                            android:textStyle="bold" />
+
+                    </LinearLayout>
+
+                    <!-- Enable Repeat Toggle -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:layout_marginBottom="12dp">
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="Повторять напоминание"
+                            android:textColor="@color/text_primary"
+                            android:textSize="14sp"
+                            android:gravity="center_vertical" />
+
+                        <com.google.android.material.switchmaterial.SwitchMaterial
+                            android:id="@+id/switchRepeat"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            app:thumbTint="@color/colorPrimary"
+                            app:trackTint="@color/colorPrimary" />
+
+                    </LinearLayout>
+
+                    <!-- Repeat Days Container -->
+                    <LinearLayout
+                        android:id="@+id/repeatDaysContainer"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:visibility="gone">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Повторять в дни:"
+                            android:textColor="@color/text_primary"
+                            android:textSize="14sp"
+                            android:layout_marginBottom="8dp" />
+
+                        <!-- Days of Week Checkboxes -->
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="vertical">
+
+                            <LinearLayout
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:orientation="horizontal">
+
+                                <CheckBox
+                                    android:id="@+id/checkMonday"
+                                    android:layout_width="0dp"
+                                    android:layout_height="wrap_content"
+                                    android:layout_weight="1"
+                                    android:text="Пн"
+                                    android:textSize="12sp"
+                                    android:buttonTint="@color/colorPrimary" />
+
+                                <CheckBox
+                                    android:id="@+id/checkTuesday"
+                                    android:layout_width="0dp"
+                                    android:layout_height="wrap_content"
+                                    android:layout_weight="1"
+                                    android:text="Вт"
+                                    android:textSize="12sp"
+                                    android:buttonTint="@color/colorPrimary" />
+
+                                <CheckBox
+                                    android:id="@+id/checkWednesday"
+                                    android:layout_width="0dp"
+                                    android:layout_height="wrap_content"
+                                    android:layout_weight="1"
+                                    android:text="Ср"
+                                    android:textSize="12sp"
+                                    android:buttonTint="@color/colorPrimary" />
+
+                                <CheckBox
+                                    android:id="@+id/checkThursday"
+                                    android:layout_width="0dp"
+                                    android:layout_height="wrap_content"
+                                    android:layout_weight="1"
+                                    android:text="Чт"
+                                    android:textSize="12sp"
+                                    android:buttonTint="@color/colorPrimary" />
+
+                            </LinearLayout>
+
+                            <LinearLayout
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:orientation="horizontal">
+
+                                <CheckBox
+                                    android:id="@+id/checkFriday"
+                                    android:layout_width="0dp"
+                                    android:layout_height="wrap_content"
+                                    android:layout_weight="1"
+                                    android:text="Пт"
+                                    android:textSize="12sp"
+                                    android:buttonTint="@color/colorPrimary" />
+
+                                <CheckBox
+                                    android:id="@+id/checkSaturday"
+                                    android:layout_width="0dp"
+                                    android:layout_height="wrap_content"
+                                    android:layout_weight="1"
+                                    android:text="Сб"
+                                    android:textSize="12sp"
+                                    android:buttonTint="@color/colorPrimary" />
+
+                                <CheckBox
+                                    android:id="@+id/checkSunday"
+                                    android:layout_width="0dp"
+                                    android:layout_height="wrap_content"
+                                    android:layout_weight="1"
+                                    android:text="Вс"
+                                    android:textSize="12sp"
+                                    android:buttonTint="@color/colorPrimary" />
+
+                                <!-- Empty space for alignment -->
+                                <View
+                                    android:layout_width="0dp"
+                                    android:layout_height="wrap_content"
+                                    android:layout_weight="1" />
+
+                            </LinearLayout>
+
+                        </LinearLayout>
+
+                    </LinearLayout>
+
+                </LinearLayout>
+
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- Additional Reminders Section -->
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="16dp"
+                app:cardCornerRadius="12dp"
+                app:cardElevation="2dp"
+                app:cardBackgroundColor="@color/surface">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <!-- Additional Reminders Header -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical"
+                        android:layout_marginBottom="12dp">
+
+                        <ImageView
+                            android:layout_width="20dp"
+                            android:layout_height="20dp"
+                            android:src="@drawable/ic_add"
+                            android:tint="@color/colorAccent"
+                            android:layout_marginEnd="8dp" />
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="Дополнительные напоминания"
+                            android:textColor="@color/text_primary"
+                            android:textSize="16sp"
+                            android:textStyle="bold" />
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btnAddExtraReminder"
+                            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Добавить"
+                            android:textColor="@color/colorAccent"
+                            android:textSize="12sp"
+                            app:strokeColor="@color/colorAccent"
+                            app:cornerRadius="6dp"
+                            app:icon="@drawable/ic_add"
+                            app:iconSize="16dp"
+                            app:iconTint="@color/colorAccent" />
+
+                    </LinearLayout>
+
+                    <!-- Extra Reminders List -->
+                    <LinearLayout
+                        android:id="@+id/extraRemindersContainer"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical">
+
+                        <!-- Empty state -->
+                        <TextView
+                            android:id="@+id/textNoExtraReminders"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="Нет дополнительных напоминаний"
+                            android:textColor="@color/text_tertiary"
+                            android:textSize="14sp"
+                            android:gravity="center"
+                            android:padding="16dp" />
+
+                    </LinearLayout>
+
+                </LinearLayout>
+
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- Bottom Spacer -->
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="80dp" />
+
+        </LinearLayout>
+
+    </androidx.core.widget.NestedScrollView>
+
+    <!-- Bottom Action Buttons -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom"
+        android:orientation="horizontal"
+        android:background="@color/surface"
+        android:elevation="8dp"
+        android:padding="16dp">
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnCancel"
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_marginEnd="8dp"
+            android:text="Отмена"
+            android:textColor="@color/text_secondary"
+            app:strokeColor="@color/text_secondary"
+            app:cornerRadius="8dp" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnSaveReminders"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_marginStart="8dp"
+            android:text="Сохранить"
+            android:backgroundTint="@color/colorPrimary"
+            app:cornerRadius="8dp" />
+
+    </LinearLayout>
+
+</androidx.coordinatorlayout.widget.CoordinatorLayout>

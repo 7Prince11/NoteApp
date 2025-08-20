@@ -1,3 +1,4 @@
+// app/src/main/java/com/kelo/noteapp/AddEditNoteActivity.java
 package com.kelo.noteapp;
 
 import android.app.AlarmManager;
@@ -11,7 +12,6 @@ import android.os.Bundle;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.ArrayAdapter;
-import android.widget.Button;
 import android.widget.DatePicker;
 import android.widget.EditText;
 import android.widget.ImageButton;
@@ -20,7 +20,6 @@ import android.widget.TextView;
 import android.widget.TimePicker;
 import android.widget.Toast;
 
-import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
 
@@ -28,6 +27,7 @@ import com.google.android.material.chip.Chip;
 import com.google.android.material.chip.ChipGroup;
 
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.Locale;
@@ -39,9 +39,10 @@ public class AddEditNoteActivity extends AppCompatActivity {
     private TextView textReminderDateTime;
     private TextView textRepeatDays;
     private ImageButton btnClearReminder;
-    private Spinner spinnerCategory; // Kept for compatibility
+    private Spinner spinnerCategory;
 
-    // NEW: ChipGroup and individual chips for categories including EVERYDAY
+    private View reminderDetailsContainer;
+
     private ChipGroup chipGroupCategory;
     private Chip chipPersonal, chipWork, chipFamily, chipErrand, chipOther, chipEveryday;
 
@@ -53,55 +54,51 @@ public class AddEditNoteActivity extends AppCompatActivity {
     private Calendar reminderCalendar;
     private int repeatDays = 0;
 
-    // ADD THESE NEW VARIABLES TO PRESERVE ORIGINAL STATUS:
     private boolean originalIsPinned = false;
     private boolean originalIsCompleted = false;
 
     private static final String PREFS_NAME = "NotesAppPrefs";
     private static final String KEY_TIME_24H = "time_24h";
 
-    // Categories: key -> display name (ru) - UPDATED with everyday
     private static final String[] CAT_KEYS =    {"work","personal","family","errand","other","everyday"};
     private static final String[] CAT_DISPLAY = {"Работа","Личное","Семья","Поручение","Другое","Ежедневно"};
+
+    private static final int ADVANCED_REMINDER_REQUEST = 100;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_add_edit_note);
 
-        // Toolbar
         Toolbar toolbar = findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
         if (getSupportActionBar() != null) getSupportActionBar().setDisplayHomeAsUpEnabled(true);
 
-        // Views
         editTitle = findViewById(R.id.editTitle);
         editContent = findViewById(R.id.editContent);
         chipReminder = findViewById(R.id.chipReminder);
         textReminderDateTime = findViewById(R.id.textReminderDateTime);
         textRepeatDays = findViewById(R.id.textRepeatDays);
         btnClearReminder = findViewById(R.id.btnClearReminder);
-        spinnerCategory = findViewById(R.id.spinnerCategory); // Kept for compatibility
+        spinnerCategory = findViewById(R.id.spinnerCategory);
+        reminderDetailsContainer = findViewById(R.id.reminderDetailsContainer);
 
-        // NEW: Initialize ChipGroup and individual chips including EVERYDAY
         chipGroupCategory = findViewById(R.id.chipGroupCategory);
         chipPersonal = findViewById(R.id.chipPersonal);
         chipWork = findViewById(R.id.chipWork);
         chipFamily = findViewById(R.id.chipFamily);
         chipErrand = findViewById(R.id.chipErrand);
         chipOther = findViewById(R.id.chipOther);
-        chipEveryday = findViewById(R.id.chipEveryday); // NEW
+        chipEveryday = findViewById(R.id.chipEveryday);
 
         btnSave = findViewById(R.id.btnSave);
 
         databaseHelper = new DatabaseHelper(this);
         reminderCalendar = Calendar.getInstance();
 
-        // Category spinner setup (kept for compatibility)
         ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, CAT_DISPLAY);
         spinnerCategory.setAdapter(adapter);
 
-        // Edit mode?
         Intent intent = getIntent();
         if (intent.hasExtra("note_id")) {
             noteId = intent.getIntExtra("note_id", -1);
@@ -112,14 +109,11 @@ public class AddEditNoteActivity extends AppCompatActivity {
                 reminderTime = existing.getReminderTime();
                 repeatDays = existing.getRepeatDays();
 
-                // PRESERVE ORIGINAL STATUS:
                 originalIsPinned = existing.isPinned();
                 originalIsCompleted = existing.isCompleted();
 
-                // Set category using both methods for compatibility
                 int idx = indexOfKey(existing.getCategory());
-                spinnerCategory.setSelection(idx >= 0 ? idx : 1); // default "Личное"
-                // NEW: Also set the chip selection
+                spinnerCategory.setSelection(idx >= 0 ? idx : 1);
                 setCategoryChip(existing.getCategory());
 
                 if (reminderTime > 0) {
@@ -129,24 +123,49 @@ public class AddEditNoteActivity extends AppCompatActivity {
             }
             if (getSupportActionBar() != null) getSupportActionBar().setTitle("Редактировать заметку");
         } else {
-            // default category "Личное"
             spinnerCategory.setSelection(1);
-            // NEW: Also set default chip
             setCategoryChip("personal");
             if (getSupportActionBar() != null) getSupportActionBar().setTitle("Новая заметка");
         }
 
-        chipReminder.setOnClickListener(v -> showDateTimePicker());
+        chipReminder.setOnClickListener(v -> openAdvancedReminderInterface());
         btnClearReminder.setOnClickListener(v -> clearReminder());
         btnSave.setOnClickListener(v -> saveNote());
     }
 
-    // NEW: Method to set category chip selection including EVERYDAY
+    private void openAdvancedReminderInterface() {
+        Intent intent = new Intent(this, AdvancedReminderActivity.class);
+        if (reminderTime > 0) {
+            intent.putExtra("existing_reminder_time", reminderTime);
+            intent.putExtra("existing_repeat_days", repeatDays);
+        }
+        startActivityForResult(intent, ADVANCED_REMINDER_REQUEST);
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+
+        if (requestCode == ADVANCED_REMINDER_REQUEST && resultCode == RESULT_OK && data != null) {
+            reminderTime = data.getLongExtra("reminder_time", 0);
+            repeatDays = data.getIntExtra("repeat_days", 0);
+
+            ArrayList<Long> extraReminders = (ArrayList<Long>) data.getSerializableExtra("extra_reminders");
+
+            if (reminderTime > 0) {
+                reminderCalendar.setTimeInMillis(reminderTime);
+                updateReminderDisplay();
+            }
+
+            if (extraReminders != null && !extraReminders.isEmpty()) {
+                Toast.makeText(this, "Дополнительные напоминания: " + extraReminders.size(), Toast.LENGTH_SHORT).show();
+            }
+        }
+    }
+
     private void setCategoryChip(String categoryKey) {
-        // Clear all selections first
         chipGroupCategory.clearCheck();
 
-        // Set the correct chip as checked
         switch (categoryKey == null ? "personal" : categoryKey) {
             case "work":
                 chipWork.setChecked(true);
@@ -160,7 +179,7 @@ public class AddEditNoteActivity extends AppCompatActivity {
             case "other":
                 chipOther.setChecked(true);
                 break;
-            case "everyday": // NEW
+            case "everyday":
                 chipEveryday.setChecked(true);
                 break;
             case "personal":
@@ -170,7 +189,6 @@ public class AddEditNoteActivity extends AppCompatActivity {
         }
     }
 
-    // NEW: Method to get selected category from chips including EVERYDAY
     private String getSelectedCategoryFromChips() {
         int checkedChipId = chipGroupCategory.getCheckedChipId();
 
@@ -182,10 +200,10 @@ public class AddEditNoteActivity extends AppCompatActivity {
             return "errand";
         } else if (checkedChipId == R.id.chipOther) {
             return "other";
-        } else if (checkedChipId == R.id.chipEveryday) { // NEW
+        } else if (checkedChipId == R.id.chipEveryday) {
             return "everyday";
         } else {
-            return "personal"; // default
+            return "personal";
         }
     }
 
@@ -196,11 +214,9 @@ public class AddEditNoteActivity extends AppCompatActivity {
     }
 
     private String selectedCategoryKey() {
-        // NEW: Use chips if available, fallback to spinner
         if (chipGroupCategory != null) {
             return getSelectedCategoryFromChips();
         } else {
-            // Fallback to spinner method
             int pos = spinnerCategory.getSelectedItemPosition();
             if (pos < 0 || pos >= CAT_KEYS.length) return "personal";
             return CAT_KEYS[pos];
@@ -257,19 +273,48 @@ public class AddEditNoteActivity extends AppCompatActivity {
             String dateStr = dateFormat.format(new Date(reminderTime));
             String timeStr = timeFormat.format(new Date(reminderTime));
 
-            textReminderDateTime.setText(dateStr + " в " + timeStr);
+            String displayText = dateStr + " в " + timeStr;
+            textReminderDateTime.setText(displayText);
+
+            if (repeatDays > 0) {
+                textRepeatDays.setText(getRepeatDaysText(repeatDays));
+                textRepeatDays.setVisibility(View.VISIBLE);
+            } else {
+                textRepeatDays.setVisibility(View.GONE);
+            }
+
+            reminderDetailsContainer.setVisibility(View.VISIBLE);
             textReminderDateTime.setVisibility(View.VISIBLE);
             btnClearReminder.setVisibility(View.VISIBLE);
-            chipReminder.setText("Напоминание установлено");
+            chipReminder.setText("Изменить напоминание");
         } else {
+            reminderDetailsContainer.setVisibility(View.GONE);
             textReminderDateTime.setVisibility(View.GONE);
             btnClearReminder.setVisibility(View.GONE);
+            textRepeatDays.setVisibility(View.GONE);
             chipReminder.setText("Добавить напоминание");
         }
     }
 
+    private String getRepeatDaysText(int repeatDays) {
+        if (repeatDays == 0) return "";
+
+        String[] dayNames = {"Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"};
+        StringBuilder result = new StringBuilder();
+
+        for (int i = 0; i < 7; i++) {
+            if ((repeatDays & (1 << i)) != 0) {
+                if (result.length() > 0) result.append(", ");
+                result.append(dayNames[i]);
+            }
+        }
+
+        return "Повтор: " + result.toString();
+    }
+
     private void clearReminder() {
         reminderTime = 0;
+        repeatDays = 0;
         updateReminderDisplay();
     }
 
@@ -302,7 +347,6 @@ public class AddEditNoteActivity extends AppCompatActivity {
         note.setRepeatDays(repeatDays);
 
         if (noteId == -1) {
-            // New note
             note.setCreatedAt(System.currentTimeMillis());
             note.setCompleted(false);
             note.setPinned(false);
@@ -313,24 +357,20 @@ public class AddEditNoteActivity extends AppCompatActivity {
                 scheduleNotification(note);
             }
         } else {
-            // Edit existing note
             note.setId(noteId);
-            note.setCreatedAt(System.currentTimeMillis()); // Keep original creation time would be better, but this works
+            note.setCreatedAt(System.currentTimeMillis());
 
-            // PRESERVE ORIGINAL STATUS:
             note.setPinned(originalIsPinned);
             note.setCompleted(originalIsCompleted);
 
             databaseHelper.updateNote(note);
 
-            // Update notification
             cancelNotification(noteId);
             if (reminderTime > 0) {
                 scheduleNotification(note);
             }
         }
 
-        // Send broadcast to update main activity
         Intent updateIntent = new Intent("com.kelo.noteapp.NOTE_UPDATED");
         sendBroadcast(updateIntent);
 
@@ -374,9 +414,8 @@ public class AddEditNoteActivity extends AppCompatActivity {
         if (am != null) am.cancel(pi);
     }
 
-    // ==== Repeat helpers ====
     private static int todayIndex(Calendar cal) {
-        int dow = cal.get(Calendar.DAY_OF_WEEK); // Sun=1..Sat=7
-        return (dow == Calendar.SUNDAY) ? 6 : (dow - 2); // Mon=0..Sun=6
+        int dow = cal.get(Calendar.DAY_OF_WEEK);
+        return (dow == Calendar.SUNDAY) ? 6 : (dow - 2);
     }
 }

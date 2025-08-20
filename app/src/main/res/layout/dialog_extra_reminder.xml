@@ -1,0 +1,139 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="24dp"
+    android:background="@drawable/dialog_background">
+
+    <!-- Header -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:layout_marginBottom="20dp">
+
+        <ImageView
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:src="@drawable/ic_alarm"
+            android:tint="@color/colorPrimary"
+            android:layout_marginEnd="12dp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Дополнительное напоминание"
+            android:textColor="@color/text_primary"
+            android:textSize="18sp"
+            android:textStyle="bold" />
+
+    </LinearLayout>
+
+    <!-- Date Selection -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_marginBottom="16dp">
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Дата:"
+            android:textColor="@color/text_primary"
+            android:textSize="16sp"
+            android:gravity="center_vertical" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnSelectDate"
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Выбрать"
+            android:textColor="@color/colorPrimary"
+            app:strokeColor="@color/colorPrimary"
+            app:cornerRadius="8dp"
+            app:icon="@drawable/ic_calendar"
+            app:iconTint="@color/colorPrimary" />
+
+    </LinearLayout>
+
+    <!-- Time Selection -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_marginBottom="16dp">
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Время:"
+            android:textColor="@color/text_primary"
+            android:textSize="16sp"
+            android:gravity="center_vertical" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnSelectTime"
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Выбрать"
+            android:textColor="@color/colorPrimary"
+            app:strokeColor="@color/colorPrimary"
+            app:cornerRadius="8dp"
+            app:icon="@drawable/ic_alarm"
+            app:iconTint="@color/colorPrimary" />
+
+    </LinearLayout>
+
+    <!-- Selected Date/Time Display -->
+    <TextView
+        android:id="@+id/textSelectedDateTime"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="25 дек 2024 в 14:30"
+        android:textColor="@color/text_primary"
+        android:textSize="14sp"
+        android:background="@drawable/compact_reminder_background"
+        android:padding="12dp"
+        android:gravity="center"
+        android:layout_marginBottom="20dp"
+        android:visibility="gone" />
+
+    <!-- Action Buttons -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal">
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnCancel"
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_marginEnd="8dp"
+            android:text="Отмена"
+            android:textColor="@color/text_secondary"
+            app:strokeColor="@color/text_secondary"
+            app:cornerRadius="8dp" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnSave"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_marginStart="8dp"
+            android:text="Добавить"
+            android:backgroundTint="@color/colorPrimary"
+            app:cornerRadius="8dp" />
+
+    </LinearLayout>
+
+</LinearLayout>

@@ -63,6 +63,9 @@
                 android:value=".MainActivity" />
         </activity>
 
+        <activity
+            android:name=".AdvancedReminderActivity"
+            android:exported="false" />
         <!-- Settings Activity -->
         <activity
             android:name=".SettingsActivity"
