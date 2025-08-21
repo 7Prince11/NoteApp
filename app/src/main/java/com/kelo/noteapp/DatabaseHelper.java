@@ -1,4 +1,3 @@
-// app/src/main/java/com/kelo/noteapp/DatabaseHelper.java
 package com.kelo.noteapp;
 
 import android.content.ContentValues;
@@ -17,11 +16,9 @@ import java.util.Set;
 
 public class DatabaseHelper extends SQLiteOpenHelper {
 
-    // Database version bumped to v5: adds COLUMN_IS_DELETED and COLUMN_DELETED_AT for trash functionality
     private static final int DATABASE_VERSION = 5;
     private static final String DATABASE_NAME = "NotesDatabase.db";
 
-    // Table & columns
     private static final String TABLE_NOTES = "notes";
     private static final String COLUMN_ID = "id";
     private static final String COLUMN_TITLE = "title";
@@ -32,7 +29,6 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     private static final String COLUMN_IS_PINNED = "is_pinned";
     private static final String COLUMN_REPEAT_DAYS = "repeat_days";
     private static final String COLUMN_CATEGORY = "category";
-    // Trash functionality columns
     private static final String COLUMN_IS_DELETED = "is_deleted";
     private static final String COLUMN_DELETED_AT = "deleted_at";
 
@@ -54,34 +50,26 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         super(context, DATABASE_NAME, null, DATABASE_VERSION);
     }
 
-    @Override
-    public void onCreate(SQLiteDatabase db) {
-        db.execSQL(CREATE_TABLE_NOTES);
-    }
+    @Override public void onCreate(SQLiteDatabase db) { db.execSQL(CREATE_TABLE_NOTES); }
 
     @Override
     public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
-        // v2: is_pinned
         if (oldVersion < 2) {
             db.execSQL("ALTER TABLE " + TABLE_NOTES + " ADD COLUMN " + COLUMN_IS_PINNED + " INTEGER DEFAULT 0");
         }
-        // v3: repeat_days
         if (oldVersion < 3) {
             db.execSQL("ALTER TABLE " + TABLE_NOTES + " ADD COLUMN " + COLUMN_REPEAT_DAYS + " INTEGER DEFAULT 0");
         }
-        // v4: category
         if (oldVersion < 4) {
             db.execSQL("ALTER TABLE " + TABLE_NOTES + " ADD COLUMN " + COLUMN_CATEGORY + " TEXT DEFAULT 'personal'");
         }
-        // v5: trash functionality
         if (oldVersion < 5) {
             db.execSQL("ALTER TABLE " + TABLE_NOTES + " ADD COLUMN " + COLUMN_IS_DELETED + " INTEGER DEFAULT 0");
             db.execSQL("ALTER TABLE " + TABLE_NOTES + " ADD COLUMN " + COLUMN_DELETED_AT + " INTEGER DEFAULT 0");
         }
     }
 
-    // ===== CREATE OPERATIONS =====
-
+    // ===== CREATE =====
     public long addNote(Note note) {
         SQLiteDatabase db = this.getWritableDatabase();
         ContentValues values = new ContentValues();
@@ -100,21 +88,16 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         return id;
     }
 
-    // ===== READ OPERATIONS =====
-
+    // ===== READ =====
     public Note getNote(int id) {
         SQLiteDatabase db = this.getReadableDatabase();
         Cursor c = db.query(
-                TABLE_NOTES,
-                null,
+                TABLE_NOTES, null,
                 COLUMN_ID + "=? AND " + COLUMN_IS_DELETED + "=0",
                 new String[]{String.valueOf(id)}, null, null, null
         );
-
         Note note = null;
-        if (c != null && c.moveToFirst()) {
-            note = readNoteFromCursor(c);
-        }
+        if (c != null && c.moveToFirst()) note = readNoteFromCursor(c);
         if (c != null) c.close();
         db.close();
         return note;
@@ -130,27 +113,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         SQLiteDatabase db = this.getReadableDatabase();
         Cursor c = db.rawQuery(sql, null);
         if (c.moveToFirst()) {
-            do {
-                list.add(readNoteFromCursor(c));
-            } while (c.moveToNext());
-        }
-        c.close();
-        db.close();
-        return list;
-    }
-
-    public List<Note> getNotesByCategory(String categoryKey) {
-        List<Note> list = new ArrayList<>();
-        SQLiteDatabase db = this.getReadableDatabase();
-        Cursor c = db.query(TABLE_NOTES, null,
-                COLUMN_CATEGORY + "=? AND " + COLUMN_IS_DELETED + "=0",
-                new String[]{categoryKey},
-                null, null,
-                COLUMN_IS_PINNED + " DESC, " + COLUMN_IS_COMPLETED + " ASC, " + COLUMN_CREATED_AT + " DESC");
-        if (c.moveToFirst()) {
-            do {
-                list.add(readNoteFromCursor(c));
-            } while (c.moveToNext());
+            do { list.add(readNoteFromCursor(c)); } while (c.moveToNext());
         }
         c.close();
         db.close();
@@ -165,17 +128,31 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         SQLiteDatabase db = this.getReadableDatabase();
         Cursor c = db.rawQuery(sql, null);
         if (c.moveToFirst()) {
-            do {
-                list.add(readNoteFromCursor(c));
-            } while (c.moveToNext());
+            do { list.add(readNoteFromCursor(c)); } while (c.moveToNext());
         }
         c.close();
         db.close();
         return list;
     }
 
-    // ===== UPDATE OPERATIONS =====
+    // NEW: by category (active, not deleted)
+    public List<Note> getNotesByCategory(String categoryKey) {
+        List<Note> list = new ArrayList<>();
+        SQLiteDatabase db = this.getReadableDatabase();
+        Cursor c = db.query(TABLE_NOTES, null,
+                COLUMN_CATEGORY + "=? AND " + COLUMN_IS_DELETED + "=0 AND " + COLUMN_IS_COMPLETED + "=0",
+                new String[]{categoryKey == null ? "personal" : categoryKey},
+                null, null,
+                COLUMN_IS_PINNED + " DESC, " + COLUMN_CREATED_AT + " DESC");
+        if (c.moveToFirst()) {
+            do { list.add(readNoteFromCursor(c)); } while (c.moveToNext());
+        }
+        c.close();
+        db.close();
+        return list;
+    }
 
+    // ===== UPDATE =====
     public int updateNote(Note note) {
         SQLiteDatabase db = this.getWritableDatabase();
         ContentValues values = new ContentValues();
@@ -191,17 +168,26 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         return rows;
     }
 
-    // ===== DELETE OPERATIONS =====
-
-    public void deleteNote(int id) {
-        moveToTrash(id);
+    public void updateNotePinned(int id, boolean pinned) {
+        SQLiteDatabase db = this.getWritableDatabase();
+        ContentValues v = new ContentValues();
+        v.put(COLUMN_IS_PINNED, pinned ? 1 : 0);
+        db.update(TABLE_NOTES, v, COLUMN_ID + "=?", new String[]{String.valueOf(id)});
+        db.close();
     }
 
-    public void deleteAllNotes() {
-        moveAllToTrash();
+    public void updateNoteCategory(int id, String categoryKey) {
+        SQLiteDatabase db = this.getWritableDatabase();
+        ContentValues v = new ContentValues();
+        v.put(COLUMN_CATEGORY, categoryKey == null ? "personal" : categoryKey);
+        db.update(TABLE_NOTES, v, COLUMN_ID + "=?", new String[]{String.valueOf(id)});
+        db.close();
     }
 
-    // ===== TRASH FUNCTIONALITY =====
+    // ===== DELETE / TRASH =====
+    public void deleteNote(int id) { moveToTrash(id); }
+
+    public void deleteAllNotes() { moveAllToTrash(); }
 
     public List<Note> getTrashNotes() {
         List<Note> list = new ArrayList<>();
@@ -211,9 +197,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         SQLiteDatabase db = this.getReadableDatabase();
         Cursor c = db.rawQuery(sql, null);
         if (c.moveToFirst()) {
-            do {
-                list.add(readNoteFromCursor(c));
-            } while (c.moveToNext());
+            do { list.add(readNoteFromCursor(c)); } while (c.moveToNext());
         }
         c.close();
         db.close();
@@ -264,9 +248,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         String sql = "SELECT COUNT(*) FROM " + TABLE_NOTES + " WHERE " + COLUMN_IS_DELETED + " = 1";
         Cursor c = db.rawQuery(sql, null);
         int count = 0;
-        if (c.moveToFirst()) {
-            count = c.getInt(0);
-        }
+        if (c.moveToFirst()) count = c.getInt(0);
         c.close();
         db.close();
         return count;
@@ -282,8 +264,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         return deletedCount;
     }
 
-    // ===== CALENDAR FUNCTIONS =====
-
+    // ===== CALENDAR (dots & lists) =====
     public Map<String, Integer> getNotesCountForMonth(int year, int month) {
         Map<String, Integer> dateCountMap = new HashMap<>();
         SQLiteDatabase db = this.getReadableDatabase();
@@ -297,18 +278,13 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         calendar.add(Calendar.MILLISECOND, -1);
         long monthEnd = calendar.getTimeInMillis();
 
-        // Only specific dated notes (exclude everyday)
         String sql = "SELECT " + COLUMN_REMINDER_TIME + " FROM " + TABLE_NOTES +
                 " WHERE " + COLUMN_IS_DELETED + "=0" +
                 " AND " + COLUMN_IS_COMPLETED + "=0" +
                 " AND " + COLUMN_REMINDER_TIME + " BETWEEN ? AND ?" +
                 " AND " + COLUMN_CATEGORY + " != 'everyday'";
 
-        Cursor c = db.rawQuery(sql, new String[]{
-                String.valueOf(monthStart),
-                String.valueOf(monthEnd)
-        });
-
+        Cursor c = db.rawQuery(sql, new String[]{ String.valueOf(monthStart), String.valueOf(monthEnd) });
         if (c.moveToFirst()) {
             do {
                 long reminderTime = c.getLong(0);
@@ -340,9 +316,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         Calendar dayEnd = Calendar.getInstance();
         dayEnd.set(year, month, day, 23, 59, 59);
         dayEnd.set(Calendar.MILLISECOND, 999);
-        long endTime = dayEnd.getTimeInMillis();
 
-        // Specific date notes (non-everyday)
         String sql = "SELECT * FROM " + TABLE_NOTES +
                 " WHERE " + COLUMN_IS_DELETED + "=0" +
                 " AND " + COLUMN_IS_COMPLETED + "=0" +
@@ -350,19 +324,12 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                 " AND " + COLUMN_CATEGORY + " != 'everyday'" +
                 " ORDER BY " + COLUMN_REMINDER_TIME + " ASC";
 
-        Cursor c = db.rawQuery(sql, new String[]{
-                String.valueOf(startTime),
-                String.valueOf(endTime)
-        });
-
+        Cursor c = db.rawQuery(sql, new String[]{ String.valueOf(startTime), String.valueOf(dayEnd.getTimeInMillis()) });
         if (c.moveToFirst()) {
-            do {
-                notes.add(readNoteFromCursor(c));
-            } while (c.moveToNext());
+            do { notes.add(readNoteFromCursor(c)); } while (c.moveToNext());
         }
         c.close();
 
-        // Add "everyday" + repeating notes for THIS date, but only within next 7 days
         Calendar today = Calendar.getInstance();
         today.set(Calendar.HOUR_OF_DAY, 0);
         today.set(Calendar.MINUTE, 0);
@@ -382,11 +349,9 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                     " AND " + COLUMN_REPEAT_DAYS + " > 0 " +
                     " AND ((" + COLUMN_REPEAT_DAYS + " & ?) != 0)";
 
-            Cursor ec = db.rawQuery(everySql, new String[]{String.valueOf(mask)});
+            Cursor ec = db.rawQuery(everySql, new String[]{ String.valueOf(mask) });
             if (ec.moveToFirst()) {
-                do {
-                    notes.add(readNoteFromCursor(ec));
-                } while (ec.moveToNext());
+                do { notes.add(readNoteFromCursor(ec)); } while (ec.moveToNext());
             }
             ec.close();
         }
@@ -395,7 +360,6 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         return notes;
     }
 
-    // Only "everyday" repeating dates within the next 7 days (today..today+6)
     public Set<String> getRecurringDates(int startYear, int startMonth, int endYear, int endMonth) {
         Set<String> recurringDates = new HashSet<>();
         SQLiteDatabase db = this.getReadableDatabase();
@@ -420,7 +384,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                     " AND " + COLUMN_REPEAT_DAYS + " > 0 " +
                     " AND ((" + COLUMN_REPEAT_DAYS + " & ?) != 0) LIMIT 1";
 
-            Cursor c = db.rawQuery(sql, new String[]{String.valueOf(mask)});
+            Cursor c = db.rawQuery(sql, new String[]{ String.valueOf(mask) });
             boolean exists = c.moveToFirst();
             c.close();
 
@@ -454,16 +418,12 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         }
     }
 
-    // ===== STATISTICS =====
-
+    // ===== STATS =====
     public Map<String, Integer> getCategoryStats() {
         Map<String, Integer> stats = new HashMap<>();
         SQLiteDatabase db = this.getReadableDatabase();
-
         String sql = "SELECT " + COLUMN_CATEGORY + ", COUNT(*) FROM " + TABLE_NOTES +
-                " WHERE " + COLUMN_IS_DELETED + " = 0" +
-                " GROUP BY " + COLUMN_CATEGORY;
-
+                " WHERE " + COLUMN_IS_DELETED + " = 0 GROUP BY " + COLUMN_CATEGORY;
         Cursor c = db.rawQuery(sql, null);
         if (c.moveToFirst()) {
             do {
@@ -477,8 +437,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         return stats;
     }
 
-    // ===== INTERNAL HELPER METHODS =====
-
+    // ===== INTERNAL =====
     private Note readNoteFromCursor(Cursor c) {
         Note n = new Note();
         n.setId(c.getInt(c.getColumnIndexOrThrow(COLUMN_ID)));

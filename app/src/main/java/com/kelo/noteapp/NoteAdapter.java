@@ -39,6 +39,9 @@ public class NoteAdapter extends RecyclerView.Adapter<NoteAdapter.NoteViewHolder
         void onDeleteClick(int position);
         void onCompleteClick(int position);
         void onPinClick(int position);
+
+        // Add this line:
+        default void onMoveToSecondary(int position) {}
     }
 
     public NoteAdapter(Context context, List<Note> notesList, OnNoteListener onNoteListener) {
@@ -198,26 +201,26 @@ public class NoteAdapter extends RecyclerView.Adapter<NoteAdapter.NoteViewHolder
         });
 
         // Long‑press menu: Pin / Unpin
-        holder.itemView.setOnLongClickListener(v -> {
-            PopupMenu menu = new PopupMenu(context, v);
-            final int MENU_PIN = 1;
-            menu.getMenu().add(0, MENU_PIN, 0, note.isPinned() ?
-                    "Открепить" : "Закрепить");
-            menu.setOnMenuItemClickListener(new PopupMenu.OnMenuItemClickListener() {
-                @Override
-                public boolean onMenuItemClick(MenuItem item) {
-                    if (item.getItemId() == MENU_PIN) {
-                        if (holder.getAdapterPosition() != RecyclerView.NO_POSITION) {
-                            onNoteListener.onPinClick(holder.getAdapterPosition());
-                            return true;
-                        }
-                    }
-                    return false;
-                }
-            });
-            menu.show();
-            return true;
-        });
+//        holder.itemView.setOnLongClickListener(v -> {
+//            PopupMenu menu = new PopupMenu(context, v);
+//            final int MENU_PIN = 1;
+//            menu.getMenu().add(0, MENU_PIN, 0, note.isPinned() ?
+//                    "Открепить" : "Закрепить");
+//            menu.setOnMenuItemClickListener(new PopupMenu.OnMenuItemClickListener() {
+//                @Override
+//                public boolean onMenuItemClick(MenuItem item) {
+//                    if (item.getItemId() == MENU_PIN) {
+//                        if (holder.getAdapterPosition() != RecyclerView.NO_POSITION) {
+//                            onNoteListener.onPinClick(holder.getAdapterPosition());
+//                            return true;
+//                        }
+//                    }
+//                    return false;
+//                }
+//            });
+//            menu.show();
+//            return true;
+//        });
     }
 
     @Override

@@ -7,6 +7,7 @@
     android:background="@color/background"
     tools:context=".MainActivity">
 
+    <!-- App Bar -->
     <com.google.android.material.appbar.AppBarLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -19,52 +20,153 @@
             android:background="?attr/colorPrimary"
             app:title="MindStack"
             app:popupTheme="@style/Theme.NotesApp.PopupOverlay" />
-
     </com.google.android.material.appbar.AppBarLayout>
 
+    <!-- Content Frame switches between List (tabs) and Calendar -->
     <FrameLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         app:layout_behavior="@string/appbar_scrolling_view_behavior">
 
-        <!-- List View -->
+        <!-- LIST VIEW with Tabs -->
         <RelativeLayout
             android:id="@+id/listViewContainer"
             android:layout_width="match_parent"
             android:layout_height="match_parent">
 
-            <androidx.recyclerview.widget.RecyclerView
-                android:id="@+id/recyclerView"
+            <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
-                android:clipToPadding="false"
-                android:padding="8dp"
-                android:scrollbars="vertical"
-                tools:listitem="@layout/item_note" />
+                android:orientation="vertical">
 
-            <TextView
-                android:id="@+id/emptyView"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_centerInParent="true"
-                android:drawableTop="@drawable/ic_empty_notes"
-                android:drawablePadding="16dp"
-                android:gravity="center"
-                android:text="Нет заметок\nНажмите + чтобы добавить"
-                android:textColor="@color/text_secondary"
-                android:textSize="16sp"
-                android:visibility="gone" />
+                <!-- Tabs -->
+                <com.google.android.material.tabs.TabLayout
+                    android:id="@+id/tabs"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:background="@color/surface"
+                    app:tabIndicatorColor="@color/colorPrimary"
+                    app:tabSelectedTextColor="@color/text_primary"
+                    app:tabTextColor="@color/text_secondary"
+                    app:tabRippleColor="@color/chip_background" />
+
+                <!-- Pager -->
+                <androidx.viewpager2.widget.ViewPager2
+                    android:id="@+id/viewPager"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:paddingStart="8dp"
+                    android:paddingEnd="8dp"
+                    android:clipToPadding="false" />
+            </LinearLayout>
 
         </RelativeLayout>
 
-        <!-- Calendar View -->
-        <include
+        <!-- CALENDAR VIEW (unchanged) -->
+        <RelativeLayout
             android:id="@+id/calendarViewContainer"
-            layout="@layout/view_calendar"
-            android:visibility="gone" />
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:visibility="gone">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:orientation="vertical"
+                android:padding="16dp">
+
+                <!-- Calendar Header -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:layout_marginBottom="16dp">
+
+                    <ImageButton
+                        android:id="@+id/btnPrevMonth"
+                        android:layout_width="48dp"
+                        android:layout_height="48dp"
+                        android:background="?attr/selectableItemBackgroundBorderless"
+                        android:src="@drawable/ic_arrow_left"
+                        android:contentDescription="@string/app_name" />
+
+                    <TextView
+                        android:id="@+id/textMonthYear"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:gravity="center"
+                        android:text="January 2024"
+                        android:textColor="@color/text_primary"
+                        android:textSize="18sp"
+                        android:textStyle="bold" />
+
+                    <ImageButton
+                        android:id="@+id/btnNextMonth"
+                        android:layout_width="48dp"
+                        android:layout_height="48dp"
+                        android:background="?attr/selectableItemBackgroundBorderless"
+                        android:src="@drawable/ic_arrow_right"
+                        android:contentDescription="@string/app_name" />
+                </LinearLayout>
+
+                <!-- Calendar Grid -->
+                <com.google.android.material.card.MaterialCardView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="16dp"
+                    app:cardCornerRadius="12dp"
+                    app:cardElevation="1dp"
+                    app:cardBackgroundColor="@color/surface">
+
+                    <androidx.recyclerview.widget.RecyclerView
+                        android:id="@+id/calendarGrid"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:padding="4dp" />
+                </com.google.android.material.card.MaterialCardView>
+
+                <!-- Selected Date Title -->
+                <TextView
+                    android:id="@+id/textSelectedDate"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Выберите дату"
+                    android:textColor="@color/text_primary"
+                    android:textSize="16sp"
+                    android:textStyle="bold"
+                    android:layout_marginBottom="8dp" />
+
+                <!-- Notes for selected date -->
+                <androidx.recyclerview.widget.RecyclerView
+                    android:id="@+id/selectedDateNotes"
+                    android:layout_width="match_parent"
+                    android:layout_height="0dp"
+                    android:layout_weight="1"
+                    android:visibility="gone" />
+
+                <!-- Empty for selected date -->
+                <TextView
+                    android:id="@+id/emptyDateView"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center"
+                    android:layout_marginTop="40dp"
+                    android:drawableTop="@drawable/ic_empty_notes"
+                    android:drawablePadding="16dp"
+                    android:gravity="center"
+                    android:text="Нет заметок на эту дату"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="16sp"
+                    android:visibility="gone" />
+            </LinearLayout>
+
+        </RelativeLayout>
 
     </FrameLayout>
 
+    <!-- FAB -->
     <com.google.android.material.floatingactionbutton.FloatingActionButton
         android:id="@+id/fabAdd"
         android:layout_width="wrap_content"
