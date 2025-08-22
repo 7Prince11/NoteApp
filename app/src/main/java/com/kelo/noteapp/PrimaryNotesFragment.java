@@ -1,15 +1,19 @@
 package com.kelo.noteapp;
 
 import android.content.Context;
+import android.content.DialogInterface;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.drawable.Drawable;
 import android.os.Build;
 import android.os.Bundle;
+import android.view.GestureDetector;
 import android.view.LayoutInflater;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -19,6 +23,7 @@ import androidx.recyclerview.widget.ItemTouchHelper;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.google.android.material.bottomsheet.BottomSheetDialog;
 import com.google.android.material.snackbar.Snackbar;
 
 import java.util.ArrayList;
@@ -33,6 +38,10 @@ public class PrimaryNotesFragment extends Fragment {
     private NoteAdapter adapter;
     private final List<Note> data = new ArrayList<>();
     private DatabaseHelper db;
+
+    // swipe control while the sheet is visible
+    private ItemTouchHelper itemTouchHelper;
+    private boolean allowSwipe = true;
 
     public static PrimaryNotesFragment newInstance() {
         return new PrimaryNotesFragment();
@@ -61,7 +70,6 @@ public class PrimaryNotesFragment extends Fragment {
                     ((MainActivity) getActivity()).openEditFromNote(data.get(position));
                 }
             }
-
             @Override
             public void onDeleteClick(int position) {
                 Note note = data.get(position);
@@ -78,7 +86,6 @@ public class PrimaryNotesFragment extends Fragment {
                         }).show();
                 if (getActivity() instanceof MainActivity) ((MainActivity) getActivity()).notifyTabsChanged();
             }
-
             @Override
             public void onCompleteClick(int position) {
                 Note note = data.get(position);
@@ -87,7 +94,6 @@ public class PrimaryNotesFragment extends Fragment {
                 adapter.notifyItemChanged(position);
                 if (getActivity() instanceof MainActivity) ((MainActivity) getActivity()).handleCompleteToggle(note);
             }
-
             @Override
             public void onPinClick(int position) {
                 Note note = data.get(position);
@@ -97,35 +103,99 @@ public class PrimaryNotesFragment extends Fragment {
                 adapter.notifyDataSetChanged();
                 if (getActivity() instanceof MainActivity) ((MainActivity) getActivity()).notifyTabsChanged();
             }
-
             @Override
             public void onMoveToSecondary(int position) {
-                // Move between folders without touching category
-                Note note = data.get(position);
-                db.updateNoteFolder(note.getId(), DatabaseHelper.FOLDER_SECONDARY);
-                data.remove(position);
-                adapter.notifyItemRemoved(position);
-                updateEmpty();
-                if (getActivity() instanceof MainActivity) ((MainActivity) getActivity()).notifyTabsChanged();
+                // not used here; long-press sheet handles it
             }
         });
         recycler.setAdapter(adapter);
 
         attachSwipeToDelete();
+        attachLongPressToRecycler();
 
         reload();
         return v;
     }
 
+    // ---------- Long press -> BottomSheet ----------
+    private void attachLongPressToRecycler() {
+        GestureDetector detector = new GestureDetector(requireContext(),
+                new GestureDetector.SimpleOnGestureListener() {
+                    @Override public boolean onDown(MotionEvent e) { return true; }
+                    @Override
+                    public void onLongPress(MotionEvent e) {
+                        View child = recycler.findChildViewUnder(e.getX(), e.getY());
+                        if (child == null) return;
+                        int pos = recycler.getChildAdapterPosition(child);
+                        if (pos == RecyclerView.NO_POSITION || pos >= data.size()) return;
+                        Note note = data.get(pos);
+                        showNoteActionsSheet(note, pos);
+                    }
+                });
+
+        recycler.addOnItemTouchListener(new RecyclerView.OnItemTouchListener() {
+            @Override public boolean onInterceptTouchEvent(@NonNull RecyclerView rv, @NonNull MotionEvent e) {
+                detector.onTouchEvent(e);
+                return false;
+            }
+            @Override public void onTouchEvent(@NonNull RecyclerView rv, @NonNull MotionEvent e) {}
+            @Override public void onRequestDisallowInterceptTouchEvent(boolean disallowIntercept) {}
+        });
+    }
+
+    private void showNoteActionsSheet(Note note, int position) {
+        allowSwipe = false; // freeze swipe while sheet is open
+
+        BottomSheetDialog dialog = new BottomSheetDialog(requireContext());
+        dialog.setContentView(R.layout.sheet_note_actions);
+
+        TextView actionPin = dialog.findViewById(R.id.actionPin);
+        TextView actionMove = dialog.findViewById(R.id.actionMove);
+
+        if (actionPin != null) {
+            actionPin.setText(note.isPinned() ? "Открепить" : "Закрепить");
+            actionPin.setOnClickListener(v -> {
+                boolean newPinned = !note.isPinned();
+                db.updateNotePinned(note.getId(), newPinned);
+                note.setPinned(newPinned);
+                sortDefault();
+                adapter.notifyDataSetChanged();
+                if (getActivity() instanceof MainActivity) ((MainActivity) getActivity()).notifyTabsChanged();
+                dialog.dismiss();
+            });
+        }
+
+        if (actionMove != null) {
+            actionMove.setText("Переместить в доп. папку");
+            actionMove.setOnClickListener(v -> {
+                db.updateNoteFolder(note.getId(), DatabaseHelper.FOLDER_SECONDARY);
+                data.remove(position);
+                adapter.notifyItemRemoved(position);
+                updateEmpty();
+                if (getActivity() instanceof MainActivity) ((MainActivity) getActivity()).notifyTabsChanged();
+                dialog.dismiss();
+            });
+        }
+
+        dialog.setOnDismissListener(new DialogInterface.OnDismissListener() {
+            @Override public void onDismiss(DialogInterface dialogInterface) {
+                allowSwipe = true;
+            }
+        });
+        dialog.show();
+    }
+
+    // ---------- Swipe to delete ----------
     private void attachSwipeToDelete() {
-        ItemTouchHelper helper = new ItemTouchHelper(new ItemTouchHelper.SimpleCallback(0,
+        ItemTouchHelper.SimpleCallback callback = new ItemTouchHelper.SimpleCallback(0,
                 ItemTouchHelper.LEFT | ItemTouchHelper.RIGHT) {
+
+            @Override public boolean isItemViewSwipeEnabled() { return allowSwipe; }
+
             @Override
             public boolean onMove(@NonNull RecyclerView recyclerView,
                                   @NonNull RecyclerView.ViewHolder viewHolder,
-                                  @NonNull RecyclerView.ViewHolder target) {
-                return false;
-            }
+                                  @NonNull RecyclerView.ViewHolder target) { return false; }
 
             @Override
             public void onSwiped(@NonNull RecyclerView.ViewHolder viewHolder, int direction) {
@@ -157,11 +227,8 @@ public class PrimaryNotesFragment extends Fragment {
                     View item = viewHolder.itemView;
                     Paint p = new Paint();
                     p.setColor(ContextCompat.getColor(requireContext(), R.color.delete_color));
-                    if (dX > 0) {
-                        c.drawRect(item.getLeft(), item.getTop(), dX, item.getBottom(), p);
-                    } else {
-                        c.drawRect(item.getRight() + dX, item.getTop(), item.getRight(), item.getBottom(), p);
-                    }
+                    if (dX > 0) c.drawRect(item.getLeft(), item.getTop(), dX, item.getBottom(), p);
+                    else c.drawRect(item.getRight() + dX, item.getTop(), item.getRight(), item.getBottom(), p);
 
                     Drawable icon = ContextCompat.getDrawable(requireContext(), R.drawable.ic_delete);
                     if (icon != null) {
@@ -183,8 +250,10 @@ public class PrimaryNotesFragment extends Fragment {
                 }
                 super.onChildDraw(c, recyclerView, viewHolder, dX, dY, actionState, isCurrentlyActive);
             }
-        });
-        helper.attachToRecyclerView(recycler);
+        };
+
+        itemTouchHelper = new ItemTouchHelper(callback);
+        itemTouchHelper.attachToRecyclerView(recycler);
     }
 
     private void sortDefault() {
