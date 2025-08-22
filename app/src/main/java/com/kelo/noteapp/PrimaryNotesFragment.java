@@ -7,12 +7,9 @@ import android.graphics.Paint;
 import android.graphics.drawable.Drawable;
 import android.os.Build;
 import android.os.Bundle;
-import android.view.GestureDetector;
 import android.view.LayoutInflater;
-import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -22,7 +19,6 @@ import androidx.recyclerview.widget.ItemTouchHelper;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
-import com.google.android.material.bottomsheet.BottomSheetDialog;
 import com.google.android.material.snackbar.Snackbar;
 
 import java.util.ArrayList;
@@ -37,8 +33,6 @@ public class PrimaryNotesFragment extends Fragment {
     private NoteAdapter adapter;
     private final List<Note> data = new ArrayList<>();
     private DatabaseHelper db;
-
-    private boolean suppressSwipe = false; // <- stop swipe while sheet is open
 
     public static PrimaryNotesFragment newInstance() {
         return new PrimaryNotesFragment();
@@ -61,13 +55,15 @@ public class PrimaryNotesFragment extends Fragment {
 
         recycler.setLayoutManager(new LinearLayoutManager(getContext()));
         adapter = new NoteAdapter(getContext(), data, new NoteAdapter.OnNoteListener() {
-            @Override public void onNoteClick(int position) {
+            @Override
+            public void onNoteClick(int position) {
                 if (getActivity() instanceof MainActivity) {
                     ((MainActivity) getActivity()).openEditFromNote(data.get(position));
                 }
             }
 
-            @Override public void onDeleteClick(int position) {
+            @Override
+            public void onDeleteClick(int position) {
                 Note note = data.get(position);
                 db.moveToTrash(note.getId());
                 data.remove(position);
@@ -83,7 +79,8 @@ public class PrimaryNotesFragment extends Fragment {
                 if (getActivity() instanceof MainActivity) ((MainActivity) getActivity()).notifyTabsChanged();
             }
 
-            @Override public void onCompleteClick(int position) {
+            @Override
+            public void onCompleteClick(int position) {
                 Note note = data.get(position);
                 note.setCompleted(!note.isCompleted());
                 db.updateNote(note);
@@ -91,7 +88,8 @@ public class PrimaryNotesFragment extends Fragment {
                 if (getActivity() instanceof MainActivity) ((MainActivity) getActivity()).handleCompleteToggle(note);
             }
 
-            @Override public void onPinClick(int position) {
+            @Override
+            public void onPinClick(int position) {
                 Note note = data.get(position);
                 note.setPinned(!note.isPinned());
                 db.updateNote(note);
@@ -100,10 +98,11 @@ public class PrimaryNotesFragment extends Fragment {
                 if (getActivity() instanceof MainActivity) ((MainActivity) getActivity()).notifyTabsChanged();
             }
 
-            @Override public void onMoveToSecondary(int position) {
-                // also used when sheet action tapped
+            @Override
+            public void onMoveToSecondary(int position) {
+                // Move between folders without touching category
                 Note note = data.get(position);
-                db.updateNoteCategory(note.getId(), "secondary");
+                db.updateNoteFolder(note.getId(), DatabaseHelper.FOLDER_SECONDARY);
                 data.remove(position);
                 adapter.notifyItemRemoved(position);
                 updateEmpty();
@@ -113,87 +112,23 @@ public class PrimaryNotesFragment extends Fragment {
         recycler.setAdapter(adapter);
 
         attachSwipeToDelete();
-        attachLongPressForActions(false); // main list
 
         reload();
         return v;
     }
 
-    private void attachLongPressForActions(boolean isSecondaryList) {
-        GestureDetector detector = new GestureDetector(getContext(),
-                new GestureDetector.SimpleOnGestureListener() {
-                    @Override public boolean onDown(MotionEvent e) { return true; }
-                    @Override public void onLongPress(MotionEvent e) {
-                        View child = recycler.findChildViewUnder(e.getX(), e.getY());
-                        if (child == null) return;
-                        int pos = recycler.getChildAdapterPosition(child);
-                        if (pos == RecyclerView.NO_POSITION || pos >= data.size()) return;
-                        suppressSwipe = true;
-                        showActionsSheet(data.get(pos), pos, isSecondaryList);
-                    }
-                });
-
-        recycler.addOnItemTouchListener(new RecyclerView.OnItemTouchListener() {
-            @Override public boolean onInterceptTouchEvent(@NonNull RecyclerView rv, @NonNull MotionEvent e) {
-                detector.onTouchEvent(e);
-                return false;
-            }
-            @Override public void onTouchEvent(@NonNull RecyclerView rv, @NonNull MotionEvent e) {}
-            @Override public void onRequestDisallowInterceptTouchEvent(boolean disallowIntercept) {}
-        });
-    }
-
-    private void showActionsSheet(Note note, int pos, boolean isSecondaryList) {
-        BottomSheetDialog dialog = new BottomSheetDialog(requireContext());
-        View sheet = LayoutInflater.from(getContext())
-                .inflate(R.layout.sheet_note_actions, null, false);
-
-        TextView actionPin  = sheet.findViewById(R.id.actionPin);
-        TextView actionMove = sheet.findViewById(R.id.actionMove);
-
-        actionPin.setText(note.isPinned() ? "Открепить" : "Закрепить");
-        actionMove.setText(isSecondaryList ? "Переместить в основную" : "Переместить в доп. папку");
-
-        actionPin.setOnClickListener(v -> {
-            note.setPinned(!note.isPinned());
-            db.updateNote(note);
-            sortDefault();
-            adapter.notifyDataSetChanged();
-            if (getActivity() instanceof MainActivity) ((MainActivity) getActivity()).notifyTabsChanged();
-            dialog.dismiss();
-        });
-
-        actionMove.setOnClickListener(v -> {
-            if (isSecondaryList) {
-                db.updateNoteCategory(note.getId(), "personal");
-                data.remove(pos);
-                adapter.notifyItemRemoved(pos);
-            } else {
-                db.updateNoteCategory(note.getId(), "secondary");
-                data.remove(pos);
-                adapter.notifyItemRemoved(pos);
-            }
-            updateEmpty();
-            if (getActivity() instanceof MainActivity) ((MainActivity) getActivity()).notifyTabsChanged();
-            dialog.dismiss();
-        });
-
-        dialog.setOnDismissListener(d -> suppressSwipe = false);
-        dialog.setContentView(sheet);
-        dialog.show();
-    }
-
     private void attachSwipeToDelete() {
         ItemTouchHelper helper = new ItemTouchHelper(new ItemTouchHelper.SimpleCallback(0,
                 ItemTouchHelper.LEFT | ItemTouchHelper.RIGHT) {
+            @Override
+            public boolean onMove(@NonNull RecyclerView recyclerView,
+                                  @NonNull RecyclerView.ViewHolder viewHolder,
+                                  @NonNull RecyclerView.ViewHolder target) {
+                return false;
+            }
 
-            @Override public boolean isItemViewSwipeEnabled() { return !suppressSwipe; }
-
-            @Override public boolean onMove(@NonNull RecyclerView recyclerView,
-                                            @NonNull RecyclerView.ViewHolder viewHolder,
-                                            @NonNull RecyclerView.ViewHolder target) { return false; }
-
-            @Override public void onSwiped(@NonNull RecyclerView.ViewHolder viewHolder, int direction) {
+            @Override
+            public void onSwiped(@NonNull RecyclerView.ViewHolder viewHolder, int direction) {
                 int pos = viewHolder.getAdapterPosition();
                 if (pos >= 0 && pos < data.size()) {
                     Note note = data.get(pos);
@@ -222,8 +157,11 @@ public class PrimaryNotesFragment extends Fragment {
                     View item = viewHolder.itemView;
                     Paint p = new Paint();
                     p.setColor(ContextCompat.getColor(requireContext(), R.color.delete_color));
-                    if (dX > 0) c.drawRect(item.getLeft(), item.getTop(), dX, item.getBottom(), p);
-                    else c.drawRect(item.getRight() + dX, item.getTop(), item.getRight(), item.getBottom(), p);
+                    if (dX > 0) {
+                        c.drawRect(item.getLeft(), item.getTop(), dX, item.getBottom(), p);
+                    } else {
+                        c.drawRect(item.getRight() + dX, item.getTop(), item.getRight(), item.getBottom(), p);
+                    }
 
                     Drawable icon = ContextCompat.getDrawable(requireContext(), R.drawable.ic_delete);
                     if (icon != null) {
@@ -251,7 +189,8 @@ public class PrimaryNotesFragment extends Fragment {
 
     private void sortDefault() {
         Collections.sort(data, new Comparator<Note>() {
-            @Override public int compare(Note a, Note b) {
+            @Override
+            public int compare(Note a, Note b) {
                 if (a.isPinned() != b.isPinned()) return a.isPinned() ? -1 : 1;
                 if (a.isCompleted() != b.isCompleted()) return a.isCompleted() ? 1 : -1;
                 return Long.compare(b.getCreatedAt(), a.getCreatedAt());
@@ -264,14 +203,8 @@ public class PrimaryNotesFragment extends Fragment {
     }
 
     public void reload() {
-        if (!isAdded()) return;
-        if (db == null) db = new DatabaseHelper(requireContext());
         data.clear();
-        List<Note> all = db.getActiveNotes();
-        for (Note n : all) {
-            String cat = n.getCategory() == null ? "personal" : n.getCategory();
-            if (!"secondary".equalsIgnoreCase(cat)) data.add(n);
-        }
+        data.addAll(db.getActiveNotesByFolder(DatabaseHelper.FOLDER_MAIN));
         sortDefault();
         if (adapter != null) adapter.notifyDataSetChanged();
         updateEmpty();

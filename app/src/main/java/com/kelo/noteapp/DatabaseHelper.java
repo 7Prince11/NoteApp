@@ -16,10 +16,14 @@ import java.util.Set;
 
 public class DatabaseHelper extends SQLiteOpenHelper {
 
-    private static final int DATABASE_VERSION = 5;
+    // Bump version to add "folder" column
+    private static final int DATABASE_VERSION = 6;
     private static final String DATABASE_NAME = "NotesDatabase.db";
 
+    // Table
     private static final String TABLE_NOTES = "notes";
+
+    // Columns (unchanged ones)
     private static final String COLUMN_ID = "id";
     private static final String COLUMN_TITLE = "title";
     private static final String COLUMN_CONTENT = "content";
@@ -32,19 +36,29 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     private static final String COLUMN_IS_DELETED = "is_deleted";
     private static final String COLUMN_DELETED_AT = "deleted_at";
 
-    private static final String CREATE_TABLE_NOTES = "CREATE TABLE " + TABLE_NOTES + "("
-            + COLUMN_ID + " INTEGER PRIMARY KEY AUTOINCREMENT,"
-            + COLUMN_TITLE + " TEXT NOT NULL,"
-            + COLUMN_CONTENT + " TEXT,"
-            + COLUMN_CREATED_AT + " INTEGER,"
-            + COLUMN_REMINDER_TIME + " INTEGER DEFAULT 0,"
-            + COLUMN_IS_COMPLETED + " INTEGER DEFAULT 0,"
-            + COLUMN_IS_PINNED + " INTEGER DEFAULT 0,"
-            + COLUMN_REPEAT_DAYS + " INTEGER DEFAULT 0,"
-            + COLUMN_CATEGORY + " TEXT DEFAULT 'personal',"
-            + COLUMN_IS_DELETED + " INTEGER DEFAULT 0,"
-            + COLUMN_DELETED_AT + " INTEGER DEFAULT 0"
-            + ")";
+    // NEW: folder column (independent of category)
+    private static final String COLUMN_FOLDER = "folder";
+
+    // Public constants so fragments can use without hardcoding
+    public static final String FOLDER_MAIN = "main";
+    public static final String FOLDER_SECONDARY = "secondary";
+
+    private static final String CREATE_TABLE_NOTES =
+            "CREATE TABLE " + TABLE_NOTES + " (" +
+                    COLUMN_ID + " INTEGER PRIMARY KEY AUTOINCREMENT," +
+                    COLUMN_TITLE + " TEXT NOT NULL," +
+                    COLUMN_CONTENT + " TEXT," +
+                    COLUMN_CREATED_AT + " INTEGER," +
+                    COLUMN_REMINDER_TIME + " INTEGER DEFAULT 0," +
+                    COLUMN_IS_COMPLETED + " INTEGER DEFAULT 0," +
+                    COLUMN_IS_PINNED + " INTEGER DEFAULT 0," +
+                    COLUMN_REPEAT_DAYS + " INTEGER DEFAULT 0," +
+                    COLUMN_CATEGORY + " TEXT DEFAULT 'personal'," +
+                    COLUMN_IS_DELETED + " INTEGER DEFAULT 0," +
+                    COLUMN_DELETED_AT + " INTEGER DEFAULT 0," +
+                    // NEW: default everything to MAIN folder
+                    COLUMN_FOLDER + " TEXT DEFAULT '" + FOLDER_MAIN + "'" +
+                    ")";
 
     public DatabaseHelper(Context context) {
         super(context, DATABASE_NAME, null, DATABASE_VERSION);
@@ -67,6 +81,16 @@ public class DatabaseHelper extends SQLiteOpenHelper {
             db.execSQL("ALTER TABLE " + TABLE_NOTES + " ADD COLUMN " + COLUMN_IS_DELETED + " INTEGER DEFAULT 0");
             db.execSQL("ALTER TABLE " + TABLE_NOTES + " ADD COLUMN " + COLUMN_DELETED_AT + " INTEGER DEFAULT 0");
         }
+        // NEW: add FOLDER and infer from old "category='secondary'" if present
+        if (oldVersion < 6) {
+            db.execSQL("ALTER TABLE " + TABLE_NOTES + " ADD COLUMN " + COLUMN_FOLDER +
+                    " TEXT DEFAULT '" + FOLDER_MAIN + "'");
+            // If you previously abused category to store folder, keep category as-is
+            // but mark the folder accordingly:
+            db.execSQL("UPDATE " + TABLE_NOTES +
+                    " SET " + COLUMN_FOLDER + "='" + FOLDER_SECONDARY + "'" +
+                    " WHERE " + COLUMN_CATEGORY + "='secondary'");
+        }
     }
 
     // ===== CREATE =====
@@ -83,6 +107,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         values.put(COLUMN_CATEGORY, note.getCategory() == null ? "personal" : note.getCategory());
         values.put(COLUMN_IS_DELETED, 0);
         values.put(COLUMN_DELETED_AT, 0);
+        // folder defaults to MAIN; if your Note model later adds folder, set it here
         long id = db.insert(TABLE_NOTES, null, values);
         db.close();
         return id;
@@ -135,7 +160,24 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         return list;
     }
 
-    // NEW: by category (active, not deleted)
+    // NEW: active notes by folder (main/secondary)
+    public List<Note> getActiveNotesByFolder(String folder) {
+        if (folder == null) folder = FOLDER_MAIN;
+        List<Note> list = new ArrayList<>();
+        SQLiteDatabase db = this.getReadableDatabase();
+        Cursor c = db.query(TABLE_NOTES, null,
+                COLUMN_IS_DELETED + "=0 AND " + COLUMN_IS_COMPLETED + "=0 AND " + COLUMN_FOLDER + "=?",
+                new String[]{folder}, null, null,
+                COLUMN_IS_PINNED + " DESC, " + COLUMN_CREATED_AT + " DESC");
+        if (c.moveToFirst()) {
+            do { list.add(readNoteFromCursor(c)); } while (c.moveToNext());
+        }
+        c.close();
+        db.close();
+        return list;
+    }
+
+    // Existing helper left intact
     public List<Note> getNotesByCategory(String categoryKey) {
         List<Note> list = new ArrayList<>();
         SQLiteDatabase db = this.getReadableDatabase();
@@ -163,6 +205,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         values.put(COLUMN_IS_PINNED, note.isPinned() ? 1 : 0);
         values.put(COLUMN_REPEAT_DAYS, note.getRepeatDays());
         values.put(COLUMN_CATEGORY, note.getCategory() == null ? "personal" : note.getCategory());
+        // IMPORTANT: do not touch folder here (so we don’t accidentally reset it)
         int rows = db.update(TABLE_NOTES, values, COLUMN_ID + " = ?", new String[]{String.valueOf(note.getId())});
         db.close();
         return rows;
@@ -176,6 +219,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         db.close();
     }
 
+    // Existing method (change visible category only)
     public void updateNoteCategory(int id, String categoryKey) {
         SQLiteDatabase db = this.getWritableDatabase();
         ContentValues v = new ContentValues();
@@ -184,7 +228,16 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         db.close();
     }
 
-    // ===== DELETE / TRASH =====
+    // NEW: move note between tabs without touching category
+    public void updateNoteFolder(int id, String folder) {
+        SQLiteDatabase db = this.getWritableDatabase();
+        ContentValues v = new ContentValues();
+        v.put(COLUMN_FOLDER, (folder == null ? FOLDER_MAIN : folder));
+        db.update(TABLE_NOTES, v, COLUMN_ID + "=?", new String[]{String.valueOf(id)});
+        db.close();
+    }
+
+    // ===== TRASH =====
     public void deleteNote(int id) { moveToTrash(id); }
 
     public void deleteAllNotes() { moveAllToTrash(); }
@@ -264,7 +317,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         return deletedCount;
     }
 
-    // ===== CALENDAR (dots & lists) =====
+    // ===== CALENDAR (same as before) =====
     public Map<String, Integer> getNotesCountForMonth(int year, int month) {
         Map<String, Integer> dateCountMap = new HashMap<>();
         SQLiteDatabase db = this.getReadableDatabase();
@@ -418,25 +471,6 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         }
     }
 
-    // ===== STATS =====
-    public Map<String, Integer> getCategoryStats() {
-        Map<String, Integer> stats = new HashMap<>();
-        SQLiteDatabase db = this.getReadableDatabase();
-        String sql = "SELECT " + COLUMN_CATEGORY + ", COUNT(*) FROM " + TABLE_NOTES +
-                " WHERE " + COLUMN_IS_DELETED + " = 0 GROUP BY " + COLUMN_CATEGORY;
-        Cursor c = db.rawQuery(sql, null);
-        if (c.moveToFirst()) {
-            do {
-                String category = c.getString(0);
-                int count = c.getInt(1);
-                stats.put(category != null ? category : "personal", count);
-            } while (c.moveToNext());
-        }
-        c.close();
-        db.close();
-        return stats;
-    }
-
     // ===== INTERNAL =====
     private Note readNoteFromCursor(Cursor c) {
         Note n = new Note();
@@ -454,9 +488,11 @@ public class DatabaseHelper extends SQLiteOpenHelper {
 
         int idxDeleted = c.getColumnIndex(COLUMN_IS_DELETED);
         int idxDeletedAt = c.getColumnIndex(COLUMN_DELETED_AT);
-        n.setDeleted(idxDeleted >= 0 ? c.getInt(idxDeleted) == 1 : false);
+        n.setDeleted(idxDeleted >= 0 && c.getInt(idxDeleted) == 1);
         n.setDeletedAt(idxDeletedAt >= 0 ? c.getLong(idxDeletedAt) : 0);
 
+        // Note: we do not need to store folder on Note model for UI,
+        // because folder is only used to filter/move in DB. (Optional to add later.)
         return n;
     }
 }

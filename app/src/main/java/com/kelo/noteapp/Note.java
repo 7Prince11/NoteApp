@@ -16,10 +16,13 @@ public class Note implements Serializable {
 
     // Category (work, personal, family, errand, other, everyday)
     private String category;
+    private String folder = "main"; // "main" or "secondary"
 
     // NEW: Trash functionality
     private boolean isDeleted;
     private long deletedAt;
+
+
 
     public Note() {
         this.isCompleted = false;
@@ -29,6 +32,12 @@ public class Note implements Serializable {
         this.isDeleted = false;
         this.deletedAt = 0;
     }
+
+    public String getFolder() { return folder; }
+
+    public void setFolder(String folder) { this.folder = folder; }
+
+
 
     // Getters
     public int getId() { return id; }
